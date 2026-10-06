@@ -1,0 +1,884 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Citerne, 
+  Vehicle, 
+  StockEntry, 
+  FuelDispense, 
+  ConsumptionAlert,
+  User,
+  Fournisseur,
+  VehicleTypeConfig
+} from './types';
+import { 
+  INITIAL_CITERNES, 
+  INITIAL_VEHICLES, 
+  INITIAL_STOCK_ENTRIES, 
+  INITIAL_DISPENSES, 
+  INITIAL_ALERTS,
+  INITIAL_USERS,
+  INITIAL_FOURNISSEURS,
+  INITIAL_VEHICLE_TYPES
+} from './mockData';
+import { Dashboard } from './components/Dashboard';
+import { GestionHub, GestionSubTab } from './components/GestionHub';
+import { StockEntriesModule } from './components/StockEntriesModule';
+import { FuelDispensesModule } from './components/FuelDispensesModule';
+import { ArchitectureModal } from './components/ArchitectureModal';
+import { ConfirmModal } from './components/ConfirmModal';
+import { 
+  Gauge, 
+  Layers, 
+  Truck, 
+  ArrowDownToLine, 
+  Fuel, 
+  Users, 
+  FileText, 
+  RefreshCw, 
+  Clock, 
+  Menu, 
+  X,
+  Settings,
+  ChevronDown,
+  SlidersHorizontal,
+  Building2
+} from 'lucide-react';
+
+export default function App() {
+  // Navigation tabs
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'entries' | 'dispenses' | 'gestion' | 'architecture'>('dashboard');
+  const [gestionSubTab, setGestionSubTab] = useState<GestionSubTab>('utilisateurs');
+  const [isGestionDropdownOpen, setIsGestionDropdownOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('fr-FR'));
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Live clock
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date().toLocaleTimeString('fr-FR'));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsGestionDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // --- STATE WITH LOCALSTORAGE CACHE ---
+  const [citernes, setCiternes] = useState<Citerne[]>(() => {
+    const saved = localStorage.getItem('hg_citernes');
+    return saved ? JSON.parse(saved) : INITIAL_CITERNES;
+  });
+
+  const [vehicles, setVehicles] = useState<Vehicle[]>(() => {
+    const saved = localStorage.getItem('hg_vehicles');
+    return saved ? JSON.parse(saved) : INITIAL_VEHICLES;
+  });
+
+  const [entries, setEntries] = useState<StockEntry[]>(() => {
+    const saved = localStorage.getItem('hg_entries');
+    return saved ? JSON.parse(saved) : INITIAL_STOCK_ENTRIES;
+  });
+
+  const [dispenses, setDispenses] = useState<FuelDispense[]>(() => {
+    const saved = localStorage.getItem('hg_dispenses');
+    return saved ? JSON.parse(saved) : INITIAL_DISPENSES;
+  });
+
+  const [users, setUsers] = useState<User[]>(() => {
+    const saved = localStorage.getItem('hg_users');
+    return saved ? JSON.parse(saved) : INITIAL_USERS;
+  });
+
+  const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>(() => {
+    const saved = localStorage.getItem('hg_fournisseurs');
+    return saved ? JSON.parse(saved) : INITIAL_FOURNISSEURS;
+  });
+
+  const [vehicleTypes, setVehicleTypes] = useState<VehicleTypeConfig[]>(() => {
+    const saved = localStorage.getItem('hg_vehicle_types');
+    return saved ? JSON.parse(saved) : INITIAL_VEHICLE_TYPES;
+  });
+
+  const [alerts, setAlerts] = useState<ConsumptionAlert[]>(() => {
+    const saved = localStorage.getItem('hg_alerts');
+    return saved ? JSON.parse(saved) : INITIAL_ALERTS;
+  });
+
+  // LocalStorage sync
+  useEffect(() => {
+    localStorage.setItem('hg_citernes', JSON.stringify(citernes));
+  }, [citernes]);
+  useEffect(() => {
+    localStorage.setItem('hg_vehicles', JSON.stringify(vehicles));
+  }, [vehicles]);
+  useEffect(() => {
+    localStorage.setItem('hg_entries', JSON.stringify(entries));
+  }, [entries]);
+  useEffect(() => {
+    localStorage.setItem('hg_dispenses', JSON.stringify(dispenses));
+  }, [dispenses]);
+  useEffect(() => {
+    localStorage.setItem('hg_users', JSON.stringify(users));
+  }, [users]);
+  useEffect(() => {
+    localStorage.setItem('hg_fournisseurs', JSON.stringify(fournisseurs));
+  }, [fournisseurs]);
+  useEffect(() => {
+    localStorage.setItem('hg_vehicle_types', JSON.stringify(vehicleTypes));
+  }, [vehicleTypes]);
+  useEffect(() => {
+    localStorage.setItem('hg_alerts', JSON.stringify(alerts));
+  }, [alerts]);
+
+  // Reset to default demo data
+  const handlePerformReset = () => {
+    setCiternes(INITIAL_CITERNES);
+    setVehicles(INITIAL_VEHICLES);
+    setEntries(INITIAL_STOCK_ENTRIES);
+    setDispenses(INITIAL_DISPENSES);
+    setUsers(INITIAL_USERS);
+    setFournisseurs(INITIAL_FOURNISSEURS);
+    setVehicleTypes(INITIAL_VEHICLE_TYPES);
+    setAlerts(INITIAL_ALERTS);
+    localStorage.clear();
+    setIsResetModalOpen(false);
+  };
+
+  // --- CITERNES CRUD ---
+  const handleAddCiterne = (newCiterneData: Omit<Citerne, 'id'>) => {
+    const newCit: Citerne = {
+      ...newCiterneData,
+      id: `cit-${Date.now()}`
+    };
+    setCiternes(prev => [...prev, newCit]);
+    setAlerts(prev => [
+      {
+        id: `alt-cit-add-${Date.now()}`,
+        date: new Date().toISOString().slice(0, 16).replace('T', ' '),
+        gravite: 'info',
+        titre: `Nouvelle Citerne Installée : ${newCit.code}`,
+        message: `${newCit.nom} de capacité ${newCit.capaciteTotale.toLocaleString('fr-FR')} L ajoutée au parc.`
+      },
+      ...prev
+    ]);
+  };
+
+  const handleUpdateCiterne = (updatedCiterne: Citerne) => {
+    setCiternes(prev => prev.map(c => c.id === updatedCiterne.id ? updatedCiterne : c));
+  };
+
+  const handleDeleteCiterne = (id: string) => {
+    const target = citernes.find(c => c.id === id);
+    setCiternes(prev => prev.filter(c => c.id !== id));
+    if (target) {
+      setAlerts(prev => [
+        {
+          id: `alt-cit-del-${Date.now()}`,
+          date: new Date().toISOString().slice(0, 16).replace('T', ' '),
+          gravite: 'warning',
+          titre: `Citerne Retirée : ${target.code}`,
+          message: `La citerne ${target.code} (${target.nom}) a été supprimée du système.`
+        },
+        ...prev
+      ]);
+    }
+  };
+
+  // Direct simulation / adjustment of tank level
+  const handleUpdateCiterneLevel = (citerneId: string, newLevel: number) => {
+    setCiternes(prev => prev.map(c => c.id === citerneId ? { ...c, stockActuel: newLevel } : c));
+  };
+
+  // --- STOCK ENTRIES (LIVRAISONS / DÉPOTAGES) ---
+  const handleAddStockEntry = (newEntryData: Omit<StockEntry, 'id'>) => {
+    const newEntry: StockEntry = {
+      ...newEntryData,
+      id: `ent-${Date.now()}`
+    };
+    setEntries(prev => [newEntry, ...prev]);
+
+    // Increase target tank stock
+    setCiternes(prev => prev.map(c => {
+      if (c.id === newEntry.citerneId) {
+        const updatedLevel = Math.min(c.capaciteTotale, c.stockActuel + newEntry.quantiteLivree);
+        return {
+          ...c,
+          stockActuel: updatedLevel,
+          dernierControle: new Date().toISOString().split('T')[0]
+        };
+      }
+      return c;
+    }));
+
+    const targetC = citernes.find(c => c.id === newEntry.citerneId);
+    setAlerts(prev => [
+      {
+        id: `alt-${Date.now()}`,
+        date: new Date().toISOString().slice(0, 16).replace('T', ' '),
+        gravite: 'info',
+        titre: `Dépotage Effectué : ${newEntry.numeroBon}`,
+        message: `Réception de ${newEntry.quantiteLivree.toLocaleString('fr-FR')} L de ${newEntry.fournisseur} dans ${targetC?.code || 'citerne'}.`,
+        citerneCode: targetC?.code
+      },
+      ...prev
+    ]);
+  };
+
+  // Delete Stock Entry (Livraison) with tank stock rollback
+  const handleDeleteStockEntry = (id: string, restoreTankStock: boolean = true) => {
+    const entryToDelete = entries.find(e => e.id === id);
+    if (!entryToDelete) return;
+
+    if (restoreTankStock) {
+      setCiternes(prev => prev.map(c => {
+        if (c.id === entryToDelete.citerneId) {
+          const rolledBackStock = Math.max(0, c.stockActuel - entryToDelete.quantiteLivree);
+          return {
+            ...c,
+            stockActuel: rolledBackStock
+          };
+        }
+        return c;
+      }));
+    }
+
+    setEntries(prev => prev.filter(e => e.id !== id));
+
+    setAlerts(prev => [
+      {
+        id: `alt-del-ent-${Date.now()}`,
+        date: new Date().toISOString().slice(0, 16).replace('T', ' '),
+        gravite: 'warning',
+        titre: `Livraison Supprimée : ${entryToDelete.numeroBon}`,
+        message: `Le bon ${entryToDelete.numeroBon} (${entryToDelete.fournisseur}) a été supprimé. Le stock citerne a été ajusté de -${entryToDelete.quantiteLivree.toLocaleString('fr-FR')} L.`
+      },
+      ...prev
+    ]);
+  };
+
+  // --- FUEL DISPENSES (SORTIES / PLEINS) ---
+  const handleAddDispense = (newDispenseData: Omit<FuelDispense, 'id'>) => {
+    const newDispense: FuelDispense = {
+      ...newDispenseData,
+      id: `dsp-${Date.now()}`
+    };
+    setDispenses(prev => [newDispense, ...prev]);
+
+    // Decrease tank stock
+    setCiternes(prev => prev.map(c => {
+      if (c.id === newDispense.citerneId) {
+        const updatedStock = Math.max(0, c.stockActuel - newDispense.volumeLivre);
+        return {
+          ...c,
+          stockActuel: updatedStock
+        };
+      }
+      return c;
+    }));
+
+    // Update vehicle odometer and latest consumption
+    setVehicles(prev => prev.map(v => {
+      if (v.id === newDispense.vehiculeId) {
+        return {
+          ...v,
+          kilometrageOuHeures: newDispense.compteurActuel,
+          derniereConsoReelle: newDispense.ratioConsommation
+        };
+      }
+      return v;
+    }));
+
+    const veh = vehicles.find(v => v.id === newDispense.vehiculeId);
+    const cit = citernes.find(c => c.id === newDispense.citerneId);
+
+    if (newDispense.surconsommationAlerte) {
+      setAlerts(prev => [
+        {
+          id: `alt-${Date.now()}`,
+          date: new Date().toISOString().slice(0, 16).replace('T', ' '),
+          gravite: 'danger',
+          titre: `Surconsommation Détectée : ${veh?.code}`,
+          message: `Consommation mesurée à ${newDispense.ratioConsommation} ${veh?.uniteMesure === 'km' ? 'L/100km' : 'L/h'} (référence: ${veh?.consommationMoyenneTheorique}).`,
+          vehiculeCode: veh?.code
+        },
+        ...prev
+      ]);
+    }
+
+    if (cit && (cit.stockActuel - newDispense.volumeLivre) <= cit.seuilCritique) {
+      setAlerts(prev => [
+        {
+          id: `alt-tank-${Date.now()}`,
+          date: new Date().toISOString().slice(0, 16).replace('T', ' '),
+          gravite: 'danger',
+          titre: `Niveau Critique : ${cit.code}`,
+          message: `Le stock de la citerne ${cit.code} est tombé à ${(cit.stockActuel - newDispense.volumeLivre).toLocaleString('fr-FR')} L. Réapprovisionnement nécessaire.`,
+          citerneCode: cit.code
+        },
+        ...prev
+      ]);
+    }
+  };
+
+  // Delete Fuel Dispense (Sortie / Plein) with tank stock restitution
+  const handleDeleteDispense = (id: string, restoreTankStock: boolean = true) => {
+    const dispenseToDelete = dispenses.find(d => d.id === id);
+    if (!dispenseToDelete) return;
+
+    if (restoreTankStock) {
+      setCiternes(prev => prev.map(c => {
+        if (c.id === dispenseToDelete.citerneId) {
+          const restoredStock = Math.min(c.capaciteTotale, c.stockActuel + dispenseToDelete.volumeLivre);
+          return {
+            ...c,
+            stockActuel: restoredStock
+          };
+        }
+        return c;
+      }));
+    }
+
+    setDispenses(prev => prev.filter(d => d.id !== id));
+
+    setAlerts(prev => [
+      {
+        id: `alt-del-dsp-${Date.now()}`,
+        date: new Date().toISOString().slice(0, 16).replace('T', ' '),
+        gravite: 'info',
+        titre: `Ticket Supprimé : ${dispenseToDelete.codeTicket}`,
+        message: `Le ticket ${dispenseToDelete.codeTicket} a été supprimé. Les ${dispenseToDelete.volumeLivre.toLocaleString('fr-FR')} L ont été restitués dans la citerne.`
+      },
+      ...prev
+    ]);
+  };
+
+  // --- VEHICLES CRUD ---
+  const handleAddVehicle = (newVeh: Omit<Vehicle, 'id'>) => {
+    const v: Vehicle = {
+      ...newVeh,
+      id: `veh-${Date.now()}`
+    };
+    setVehicles(prev => [...prev, v]);
+  };
+
+  const handleUpdateVehicle = (updatedVeh: Vehicle) => {
+    setVehicles(prev => prev.map(v => v.id === updatedVeh.id ? updatedVeh : v));
+  };
+
+  const handleDeleteVehicle = (id: string) => {
+    setVehicles(prev => prev.filter(v => v.id !== id));
+  };
+
+  const handleImportVehicles = (imported: Vehicle[]) => {
+    setVehicles(prev => [...imported, ...prev]);
+  };
+
+  // --- USERS CRUD ---
+  const handleAddUser = (newUserData: Omit<User, 'id'>) => {
+    const u: User = {
+      ...newUserData,
+      id: `usr-${Date.now()}`
+    };
+    setUsers(prev => [...prev, u]);
+  };
+
+  const handleUpdateUser = (updatedUser: User) => {
+    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+  };
+
+  const handleDeleteUser = (id: string) => {
+    setUsers(prev => prev.filter(u => u.id !== id));
+  };
+
+  // --- FOURNISSEURS CRUD ---
+  const handleAddFournisseur = (newFrsData: Omit<Fournisseur, 'id'>) => {
+    const frs: Fournisseur = {
+      ...newFrsData,
+      id: `frs-${Date.now()}`
+    };
+    setFournisseurs(prev => [...prev, frs]);
+  };
+
+  const handleUpdateFournisseur = (updatedFrs: Fournisseur) => {
+    setFournisseurs(prev => prev.map(f => f.id === updatedFrs.id ? updatedFrs : f));
+  };
+
+  const handleDeleteFournisseur = (id: string) => {
+    setFournisseurs(prev => prev.filter(f => f.id !== id));
+  };
+
+  // --- VEHICLE TYPES CRUD ---
+  const handleAddVehicleType = (newVtData: Omit<VehicleTypeConfig, 'id'>) => {
+    const vt: VehicleTypeConfig = {
+      ...newVtData,
+      id: `vt-${Date.now()}`
+    };
+    setVehicleTypes(prev => [...prev, vt]);
+  };
+
+  const handleUpdateVehicleType = (updatedVt: VehicleTypeConfig) => {
+    setVehicleTypes(prev => prev.map(vt => vt.id === updatedVt.id ? updatedVt : vt));
+  };
+
+  const handleDeleteVehicleType = (id: string) => {
+    setVehicleTypes(prev => prev.filter(vt => vt.id !== id));
+  };
+
+  // Helper to open a specific subtab in Gestion
+  const handleNavigateToGestion = (subTab: GestionSubTab) => {
+    setActiveTab('gestion');
+    setGestionSubTab(subTab);
+    setIsGestionDropdownOpen(false);
+    setIsMobileMenuOpen(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+      {/* Top Industrial Navigation Bar (No-Print) */}
+      <header className="no-print bg-slate-900 border-b border-slate-800 sticky top-0 z-40 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            {/* Brand Logo & Plant Title */}
+            <div 
+              onClick={() => setActiveTab('dashboard')} 
+              className="flex items-center gap-3 cursor-pointer"
+            >
+              <div className="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold shadow-lg shadow-amber-500/20">
+                <Fuel className="w-6 h-6 stroke-[2.5]" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="font-industrial font-bold text-base sm:text-lg tracking-wider text-slate-100">
+                    HYDRO-GASOIL
+                  </h1>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-amber-400 border border-slate-700">
+                    v4.5 PRO
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 hidden sm:block">
+                  Supervision & Gestion Carburant • Citernes, Flotte & Opérateurs
+                </p>
+              </div>
+            </div>
+
+            {/* Desktop Navigation Links */}
+            <nav className="hidden md:flex items-center gap-1.5 text-xs font-semibold">
+              <button
+                onClick={() => setActiveTab('dashboard')}
+                className={`px-3 py-2 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
+                  activeTab === 'dashboard'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                <Gauge className="w-4 h-4" />
+                <span>Tableau de Bord</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('entries')}
+                className={`px-3 py-2 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
+                  activeTab === 'entries'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                <ArrowDownToLine className="w-4 h-4" />
+                <span>Entrées / Dépotages</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('dispenses')}
+                className={`px-3 py-2 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
+                  activeTab === 'dispenses'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                <Fuel className="w-4 h-4" />
+                <span>Sorties / Pleins</span>
+              </button>
+
+              {/* MENU GESTION (Unified management of Users, Citernes, Types Engins, Fournisseurs, Parc Véhicules) */}
+              <div className="relative" ref={dropdownRef}>
+                <div className="flex items-center">
+                  <button
+                    onClick={() => {
+                      setActiveTab('gestion');
+                      setIsGestionDropdownOpen(false);
+                    }}
+                    className={`px-3 py-2 rounded-l-lg flex items-center gap-1.5 transition cursor-pointer ${
+                      activeTab === 'gestion'
+                        ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800 border-r border-slate-700/50'
+                    }`}
+                  >
+                    <Settings className="w-4 h-4" />
+                    <span>Menu Gestion</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono-num font-bold ${
+                      activeTab === 'gestion' ? 'bg-slate-950 text-amber-400' : 'bg-amber-500/20 text-amber-300'
+                    }`}>
+                      5
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setIsGestionDropdownOpen(!isGestionDropdownOpen)}
+                    className={`px-2 py-2 rounded-r-lg transition cursor-pointer ${
+                      activeTab === 'gestion'
+                        ? 'bg-amber-600 text-slate-950 font-bold'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    }`}
+                    title="Dérouler les sous-modules de gestion"
+                  >
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isGestionDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                </div>
+
+                {/* Dropdown Menu for Gestion */}
+                {isGestionDropdownOpen && (
+                  <div className="absolute left-0 mt-2 w-64 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-2 z-50 animate-in fade-in">
+                    <div className="px-3 py-1.5 text-[10px] uppercase font-bold text-slate-400 tracking-wider border-b border-slate-800">
+                      Gestion du Site Industriel
+                    </div>
+                    
+                    <button
+                      onClick={() => handleNavigateToGestion('utilisateurs')}
+                      className={`w-full px-3 py-2.5 text-left flex items-center justify-between text-xs hover:bg-slate-800 transition ${
+                        activeTab === 'gestion' && gestionSubTab === 'utilisateurs' ? 'text-amber-400 font-bold bg-slate-800/60' : 'text-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-purple-400" />
+                        <span>Gestion Utilisateurs</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-mono-num bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                        {users.length}
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => handleNavigateToGestion('citernes')}
+                      className={`w-full px-3 py-2.5 text-left flex items-center justify-between text-xs hover:bg-slate-800 transition ${
+                        activeTab === 'gestion' && gestionSubTab === 'citernes' ? 'text-amber-400 font-bold bg-slate-800/60' : 'text-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-amber-400" />
+                        <span>Gestion Citernes</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-mono-num bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                        {citernes.length}
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => handleNavigateToGestion('types_engins')}
+                      className={`w-full px-3 py-2.5 text-left flex items-center justify-between text-xs hover:bg-slate-800 transition ${
+                        activeTab === 'gestion' && gestionSubTab === 'types_engins' ? 'text-amber-400 font-bold bg-slate-800/60' : 'text-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <SlidersHorizontal className="w-4 h-4 text-blue-400" />
+                        <span>Types d'Engins</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-mono-num bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                        {vehicleTypes.length}
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => handleNavigateToGestion('fournisseurs')}
+                      className={`w-full px-3 py-2.5 text-left flex items-center justify-between text-xs hover:bg-slate-800 transition ${
+                        activeTab === 'gestion' && gestionSubTab === 'fournisseurs' ? 'text-amber-400 font-bold bg-slate-800/60' : 'text-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-emerald-400" />
+                        <span>Gestion Fournisseurs</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-mono-num bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                        {fournisseurs.length}
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => handleNavigateToGestion('parc_vehicules')}
+                      className={`w-full px-3 py-2.5 text-left flex items-center justify-between text-xs hover:bg-slate-800 transition ${
+                        activeTab === 'gestion' && gestionSubTab === 'parc_vehicules' ? 'text-amber-400 font-bold bg-slate-800/60' : 'text-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Truck className="w-4 h-4 text-cyan-400" />
+                        <span>Parc Véhicules & Flotte</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-mono-num bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                        {vehicles.length}
+                      </span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={() => setActiveTab('architecture')}
+                className={`px-3 py-2 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
+                  activeTab === 'architecture'
+                    ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-500/20'
+                    : 'text-blue-400 hover:text-blue-300 hover:bg-slate-800 border border-blue-900/50'
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+                <span>Architecture</span>
+              </button>
+            </nav>
+
+            {/* Live Clock & Status Badge */}
+            <div className="flex items-center gap-3">
+              <div className="hidden lg:flex items-center gap-2 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800 text-xs font-mono-num text-slate-300">
+                <Clock className="w-3.5 h-3.5 text-amber-500" />
+                <span>{currentTime}</span>
+              </div>
+
+              <div className="hidden sm:flex items-center gap-1.5 bg-emerald-950/70 border border-emerald-500/30 text-emerald-400 px-2.5 py-1 rounded-full text-xs font-semibold">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                <span>Système Connecté</span>
+              </div>
+
+              {/* Mobile Menu Toggle */}
+              <button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="md:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              >
+                {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile Navigation Drawer */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden bg-slate-900 border-b border-slate-800 px-4 pt-2 pb-4 space-y-1 text-xs">
+            <button
+              onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }}
+              className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 font-semibold ${
+                activeTab === 'dashboard' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-200'
+              }`}
+            >
+              <Gauge className="w-4 h-4" /> Tableau de Bord & Jauges
+            </button>
+            <button
+              onClick={() => { setActiveTab('entries'); setIsMobileMenuOpen(false); }}
+              className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 font-semibold ${
+                activeTab === 'entries' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-200'
+              }`}
+            >
+              <ArrowDownToLine className="w-4 h-4" /> Entrées de Stock & BL
+            </button>
+            <button
+              onClick={() => { setActiveTab('dispenses'); setIsMobileMenuOpen(false); }}
+              className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 font-semibold ${
+                activeTab === 'dispenses' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-200'
+              }`}
+            >
+              <Fuel className="w-4 h-4" /> Sorties / Pleins Carburant
+            </button>
+
+            {/* Mobile Gestion Section */}
+            <div className="pt-2 border-t border-slate-800">
+              <div className="px-3 py-1 text-[11px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Settings className="w-3.5 h-3.5" />
+                <span>Centre de Gestion</span>
+              </div>
+              <div className="space-y-1 pl-2">
+                <button
+                  onClick={() => handleNavigateToGestion('utilisateurs')}
+                  className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
+                    activeTab === 'gestion' && gestionSubTab === 'utilisateurs' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-purple-400" />
+                    <span>1. Gestion Utilisateurs</span>
+                  </div>
+                  <span className="font-mono-num text-[10px] text-slate-400">({users.length})</span>
+                </button>
+                <button
+                  onClick={() => handleNavigateToGestion('citernes')}
+                  className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
+                    activeTab === 'gestion' && gestionSubTab === 'citernes' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-amber-400" />
+                    <span>2. Gestion Citernes</span>
+                  </div>
+                  <span className="font-mono-num text-[10px] text-slate-400">({citernes.length})</span>
+                </button>
+                <button
+                  onClick={() => handleNavigateToGestion('types_engins')}
+                  className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
+                    activeTab === 'gestion' && gestionSubTab === 'types_engins' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <SlidersHorizontal className="w-4 h-4 text-blue-400" />
+                    <span>3. Types d'Engins</span>
+                  </div>
+                  <span className="font-mono-num text-[10px] text-slate-400">({vehicleTypes.length})</span>
+                </button>
+                <button
+                  onClick={() => handleNavigateToGestion('fournisseurs')}
+                  className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
+                    activeTab === 'gestion' && gestionSubTab === 'fournisseurs' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-emerald-400" />
+                    <span>4. Gestion Fournisseurs</span>
+                  </div>
+                  <span className="font-mono-num text-[10px] text-slate-400">({fournisseurs.length})</span>
+                </button>
+                <button
+                  onClick={() => handleNavigateToGestion('parc_vehicules')}
+                  className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
+                    activeTab === 'gestion' && gestionSubTab === 'parc_vehicules' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Truck className="w-4 h-4 text-cyan-400" />
+                    <span>5. Parc Véhicules & Flotte</span>
+                  </div>
+                  <span className="font-mono-num text-[10px] text-slate-400">({vehicles.length})</span>
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={() => { setActiveTab('architecture'); setIsMobileMenuOpen(false); }}
+              className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 font-semibold ${
+                activeTab === 'architecture' ? 'bg-blue-600 text-white font-bold' : 'text-blue-400'
+              }`}
+            >
+              <FileText className="w-4 h-4" /> Architecture Technique & DDL
+            </button>
+          </div>
+        )}
+      </header>
+
+      {/* Main Module Content */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+        {activeTab === 'dashboard' && (
+          <Dashboard
+            citernes={citernes}
+            vehicles={vehicles}
+            entries={entries}
+            dispenses={dispenses}
+            alerts={alerts}
+            onUpdateCiterneLevel={handleUpdateCiterneLevel}
+            onNavigateTab={(tab, subTab) => {
+              setActiveTab(tab);
+              if (subTab) setGestionSubTab(subTab);
+            }}
+          />
+        )}
+
+        {activeTab === 'entries' && (
+          <StockEntriesModule
+            entries={entries}
+            citernes={citernes}
+            fournisseurs={fournisseurs}
+            onAddStockEntry={handleAddStockEntry}
+            onDeleteStockEntry={handleDeleteStockEntry}
+          />
+        )}
+
+        {activeTab === 'dispenses' && (
+          <FuelDispensesModule
+            dispenses={dispenses}
+            vehicles={vehicles}
+            citernes={citernes}
+            onAddDispense={handleAddDispense}
+            onDeleteDispense={handleDeleteDispense}
+          />
+        )}
+
+        {activeTab === 'gestion' && (
+          <GestionHub
+            initialSubTab={gestionSubTab}
+            users={users}
+            onAddUser={handleAddUser}
+            onUpdateUser={handleUpdateUser}
+            onDeleteUser={handleDeleteUser}
+            citernes={citernes}
+            onAddCiterne={handleAddCiterne}
+            onUpdateCiterne={handleUpdateCiterne}
+            onDeleteCiterne={handleDeleteCiterne}
+            onUpdateCiterneLevel={handleUpdateCiterneLevel}
+            vehicleTypes={vehicleTypes}
+            onAddVehicleType={handleAddVehicleType}
+            onUpdateVehicleType={handleUpdateVehicleType}
+            onDeleteVehicleType={handleDeleteVehicleType}
+            fournisseurs={fournisseurs}
+            onAddFournisseur={handleAddFournisseur}
+            onUpdateFournisseur={handleUpdateFournisseur}
+            onDeleteFournisseur={handleDeleteFournisseur}
+            vehicles={vehicles}
+            onAddVehicle={handleAddVehicle}
+            onUpdateVehicle={handleUpdateVehicle}
+            onDeleteVehicle={handleDeleteVehicle}
+            onImportVehicles={handleImportVehicles}
+          />
+        )}
+
+        {activeTab === 'architecture' && (
+          <ArchitectureModal />
+        )}
+      </main>
+
+      {/* Industrial Footer (No-Print) */}
+      <footer className="no-print bg-slate-900/80 border-t border-slate-800 py-4 px-4 sm:px-8 mt-auto text-xs text-slate-400">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-slate-300">HydroGasoil Plant System</span>
+            <span className="text-slate-600">•</span>
+            <span>Compatible Windows (Win32/Tauri/Flutter) & Android (Tablettes durcies Zebra/Honeywell)</span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsResetModalOpen(true)}
+              className="text-slate-400 hover:text-amber-400 transition flex items-center gap-1 text-[11px] cursor-pointer"
+            >
+              <RefreshCw className="w-3 h-3" />
+              <span>Réinitialiser Données Démo</span>
+            </button>
+            <span className="text-slate-600">|</span>
+            <span className="font-mono-num text-[11px] text-slate-500">
+              Serveur Dépôt: 192.168.1.10:5432 (PostgreSQL)
+            </span>
+          </div>
+        </div>
+      </footer>
+
+      {/* Confirm Reset Demo Modal */}
+      <ConfirmModal
+        isOpen={isResetModalOpen}
+        title="Réinitialiser les données de démo"
+        message="Êtes-vous sûr de vouloir réinitialiser l'application ? Toutes les modifications locales seront effacées et remplacées par les données d'usine par défaut."
+        detail="Cette action restaurera les citernes, véhicules, utilisateurs, types d'engins, fournisseurs et historiques de transactions d'origine."
+        confirmLabel="Réinitialiser Tout"
+        onConfirm={handlePerformReset}
+        onCancel={() => setIsResetModalOpen(false)}
+      />
+    </div>
+  );
+}

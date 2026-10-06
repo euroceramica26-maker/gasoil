@@ -1,0 +1,139 @@
+export type VehicleType = 'Camion Benne' | 'Pelleteuse' | 'Chargeuse' | 'Chariot Elévateur' | 'Groupe Electrogène' | 'Véhicule Léger' | 'Dumper';
+
+export type VehicleStatus = 'Actif' | 'En Maintenance' | 'Hors Service';
+
+export interface Vehicle {
+  id: string;
+  code: string; // Ex: ENG-104
+  immatriculation: string;
+  marque: string;
+  modele: string;
+  type: VehicleType;
+  status: VehicleStatus;
+  annee: number;
+  kilometrageOuHeures: number;
+  uniteMesure: 'km' | 'heures';
+  capaciteReservoir: number; // en Litres
+  consommationMoyenneTheorique: number; // L/100km ou L/h
+  derniereConsoReelle?: number;
+  dateMiseEnService: string;
+  departement: string; // Ex: Carrière, Logistique, Usine, Energie
+}
+
+export interface Citerne {
+  id: string;
+  code: string; // Ex: CIT-01
+  nom: string;
+  capaciteTotale: number; // Litres (ex: 50 000 L)
+  stockActuel: number; // Litres
+  seuilAlerteBas: number; // Litres (ex: 8 000 L)
+  seuilCritique: number; // Litres (ex: 3 000 L)
+  temperatureC: number;
+  densiteKgL: number;
+  typeGasoil: 'Gasoil Standard 10ppm' | 'Gasoil Non Routier (GNR)' | 'Gasoil Heavy Duty';
+  emplacement: string;
+  dernierControle: string;
+  statut: 'Opérationnelle' | 'En Remplissage' | 'Maintenance';
+}
+
+export interface StockEntry {
+  id: string;
+  numeroBon: string; // Ex: BL-2026-0492
+  dateLivraison: string;
+  fournisseur: string;
+  chauffeurLivreur: string;
+  immatriculationCiterneLivreur: string;
+  citerneId: string;
+  quantiteLivree: number; // Litres
+  densiteMesuree: number;
+  temperatureMesuree: number;
+  receptionnaireUsine: string;
+  signatureBase64: string;
+  notes?: string;
+  statut: 'Validé' | 'En Attente';
+}
+
+export interface FuelDispense {
+  id: string;
+  codeTicket: string; // Ex: SORT-2026-118
+  dateHeure: string;
+  citerneId: string;
+  vehiculeId: string;
+  pompiste: string;
+  chauffeur: string;
+  volumeLivre: number; // Litres
+  compteurActuel: number; // km ou heures
+  compteurPrecedent: number;
+  deltaCompteur: number;
+  ratioConsommation: number; // L/100km ou L/h calculé
+  surconsommationAlerte: boolean;
+  signatureChauffeur?: string;
+  remarques?: string;
+}
+
+export type UserRole = 'Administrateur' | 'Chef de Dépôt' | 'Pompiste' | 'Chauffeur / Opérateur' | 'Responsable Maintenance';
+export type UserStatus = 'Actif' | 'Inactif' | 'Suspendu';
+
+export interface User {
+  id: string;
+  matricule: string; // Ex: USR-001
+  nom: string;
+  prenom: string;
+  role: UserRole;
+  email: string;
+  telephone: string;
+  statut: UserStatus;
+  badgeCode: string; // Code RFID ou PIN
+  departement: string;
+  dateCreation: string;
+}
+
+export interface Repair {
+  id: string;
+  reference: string; // Ex: REP-2026-088
+  dateIntervention: string;
+  cibleType: 'Véhicule' | 'Pompe & Volucompteur' | 'Citerne' | 'Pistolet / Flexible';
+  cibleId: string;
+  cibleLibelle: string;
+  technicien: string;
+  typeIntervention: 'Préventive' | 'Curative' | 'Etalonnage Volucompteur';
+  description: string;
+  piecesRemplacees?: string;
+  coutTotal: number;
+  statut: 'Terminée' | 'En Cours' | 'Planifiée';
+}
+
+export interface Fournisseur {
+  id: string;
+  code: string; // Ex: FRS-01
+  nom: string;
+  contactNom: string;
+  telephone: string;
+  email: string;
+  adresse: string;
+  typeGasoilFourni: string;
+  numContrat?: string;
+  statut: 'Actif' | 'Inactif';
+  notes?: string;
+}
+
+export interface VehicleTypeConfig {
+  id: string;
+  code: string;
+  libelle: string;
+  categorie: 'Transport' | 'Extraction' | 'Manutention' | 'Énergie' | 'Liaison';
+  uniteMesure: 'km' | 'heures';
+  consoDefautTheorique: number;
+  description: string;
+  actif: boolean;
+}
+
+export interface ConsumptionAlert {
+  id: string;
+  date: string;
+  gravite: 'info' | 'warning' | 'danger';
+  titre: string;
+  message: string;
+  vehiculeCode?: string;
+  citerneCode?: string;
+}
