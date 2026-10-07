@@ -7,7 +7,8 @@ import {
   ConsumptionAlert,
   User,
   Fournisseur,
-  VehicleTypeConfig
+  VehicleTypeConfig,
+  AppTheme
 } from './types';
 import { 
   INITIAL_CITERNES, 
@@ -17,7 +18,8 @@ import {
   INITIAL_ALERTS,
   INITIAL_USERS,
   INITIAL_FOURNISSEURS,
-  INITIAL_VEHICLE_TYPES
+  INITIAL_VEHICLE_TYPES,
+  AVAILABLE_THEMES
 } from './mockData';
 import { Dashboard } from './components/Dashboard';
 import { GestionHub, GestionSubTab } from './components/GestionHub';
@@ -40,7 +42,11 @@ import {
   Settings,
   ChevronDown,
   SlidersHorizontal,
-  Building2
+  Building2,
+  Palette,
+  HardDrive,
+  Save,
+  CheckCircle2
 } from 'lucide-react';
 
 export default function App() {
@@ -51,7 +57,29 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('fr-FR'));
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [saveBanner, setSaveBanner] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // --- THEME STATE (5 THÈMES ÉLÉGANTS DE PRESTIGE) ---
+  const [currentTheme, setCurrentTheme] = useState<AppTheme>(() => {
+    const saved = localStorage.getItem('hg_app_theme') as string;
+    const validThemes: AppTheme[] = ['or-imperial', 'bleu-saphir', 'emeraude-prestige', 'platine-epure', 'cuivre-cognac'];
+    if (validThemes.includes(saved as AppTheme)) {
+      return saved as AppTheme;
+    }
+    // Migration fluide des anciens thèmes vers les nouveaux thèmes élégants
+    if (saved === 'sombre-ambre') return 'or-imperial';
+    if (saved === 'marine-bleu') return 'bleu-saphir';
+    if (saved === 'eco-vert') return 'emeraude-prestige';
+    if (saved === 'atelier-clair') return 'platine-epure';
+    if (saved === 'chantier-orange') return 'cuivre-cognac';
+    return 'or-imperial';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('hg_app_theme', currentTheme);
+    document.documentElement.setAttribute('data-theme', currentTheme);
+  }, [currentTheme]);
 
   // Live clock
   useEffect(() => {
@@ -72,7 +100,7 @@ export default function App() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // --- STATE WITH LOCALSTORAGE CACHE ---
+  // --- STATE WITH LOCALSTORAGE PERSISTENCE (ENREGISTREMENT LOCAL) ---
   const [citernes, setCiternes] = useState<Citerne[]>(() => {
     const saved = localStorage.getItem('hg_citernes');
     return saved ? JSON.parse(saved) : INITIAL_CITERNES;
@@ -113,7 +141,7 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_ALERTS;
   });
 
-  // LocalStorage sync
+  // LocalStorage automatic continuous sync
   useEffect(() => {
     localStorage.setItem('hg_citernes', JSON.stringify(citernes));
   }, [citernes]);
@@ -139,6 +167,67 @@ export default function App() {
     localStorage.setItem('hg_alerts', JSON.stringify(alerts));
   }, [alerts]);
 
+  // Force local storage save
+  const handleForceSaveLocal = () => {
+    localStorage.setItem('hg_citernes', JSON.stringify(citernes));
+    localStorage.setItem('hg_vehicles', JSON.stringify(vehicles));
+    localStorage.setItem('hg_entries', JSON.stringify(entries));
+    localStorage.setItem('hg_dispenses', JSON.stringify(dispenses));
+    localStorage.setItem('hg_users', JSON.stringify(users));
+    localStorage.setItem('hg_fournisseurs', JSON.stringify(fournisseurs));
+    localStorage.setItem('hg_vehicle_types', JSON.stringify(vehicleTypes));
+    localStorage.setItem('hg_alerts', JSON.stringify(alerts));
+    localStorage.setItem('hg_app_theme', currentTheme);
+    setSaveBanner('Données enregistrées localement avec succès !');
+    setTimeout(() => setSaveBanner(null), 4000);
+  };
+
+  // Export local backup file (JSON)
+  const handleExportBackup = () => {
+    const backup = {
+      version: '4.5 PRO',
+      dateExport: new Date().toISOString(),
+      plant: 'HYDRO-GASOIL INDUSTRIAL PLANT',
+      data: {
+        citernes,
+        vehicles,
+        entries,
+        dispenses,
+        users,
+        fournisseurs,
+        vehicleTypes,
+        alerts,
+        currentTheme
+      }
+    };
+    const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(backup, null, 2))}`;
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', jsonString);
+    downloadAnchor.setAttribute('download', `hydrogasoil_sauvegarde_${new Date().toISOString().slice(0, 10)}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
+
+  // Import local backup file (JSON)
+  const handleImportBackup = (jsonData: any): boolean => {
+    try {
+      const payload = jsonData.data || jsonData;
+      if (Array.isArray(payload.citernes)) setCiternes(payload.citernes);
+      if (Array.isArray(payload.vehicles)) setVehicles(payload.vehicles);
+      if (Array.isArray(payload.entries)) setEntries(payload.entries);
+      if (Array.isArray(payload.dispenses)) setDispenses(payload.dispenses);
+      if (Array.isArray(payload.users)) setUsers(payload.users);
+      if (Array.isArray(payload.fournisseurs)) setFournisseurs(payload.fournisseurs);
+      if (Array.isArray(payload.vehicleTypes)) setVehicleTypes(payload.vehicleTypes);
+      if (Array.isArray(payload.alerts)) setAlerts(payload.alerts);
+      if (payload.currentTheme) setCurrentTheme(payload.currentTheme);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   // Reset to default demo data
   const handlePerformReset = () => {
     setCiternes(INITIAL_CITERNES);
@@ -149,6 +238,7 @@ export default function App() {
     setFournisseurs(INITIAL_FOURNISSEURS);
     setVehicleTypes(INITIAL_VEHICLE_TYPES);
     setAlerts(INITIAL_ALERTS);
+    setCurrentTheme('or-imperial');
     localStorage.clear();
     setIsResetModalOpen(false);
   };
@@ -442,7 +532,15 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+    <div className="min-h-screen app-shell bg-slate-950 text-slate-100 flex flex-col">
+      {/* Top Notification Save Banner */}
+      {saveBanner && (
+        <div className="no-print bg-emerald-600 text-white text-xs font-bold py-2 px-4 text-center flex items-center justify-center gap-2 shadow-md">
+          <CheckCircle2 className="w-4 h-4 stroke-[3]" />
+          <span>{saveBanner}</span>
+        </div>
+      )}
+
       {/* Top Industrial Navigation Bar (No-Print) */}
       <header className="no-print bg-slate-900 border-b border-slate-800 sticky top-0 z-40 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -461,7 +559,7 @@ export default function App() {
                     HYDRO-GASOIL
                   </h1>
                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-amber-400 border border-slate-700">
-                    v4.5 PRO
+                    v4.6 PRO
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400 hidden sm:block">
@@ -508,7 +606,7 @@ export default function App() {
                 <span>Sorties / Pleins</span>
               </button>
 
-              {/* MENU GESTION (Unified management of Users, Citernes, Types Engins, Fournisseurs, Parc Véhicules) */}
+              {/* MENU GESTION (Unified management and local storage) */}
               <div className="relative" ref={dropdownRef}>
                 <div className="flex items-center">
                   <button
@@ -524,11 +622,6 @@ export default function App() {
                   >
                     <Settings className="w-4 h-4" />
                     <span>Menu Gestion</span>
-                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono-num font-bold ${
-                      activeTab === 'gestion' ? 'bg-slate-950 text-amber-400' : 'bg-amber-500/20 text-amber-300'
-                    }`}>
-                      5
-                    </span>
                   </button>
                   <button
                     onClick={() => setIsGestionDropdownOpen(!isGestionDropdownOpen)}
@@ -558,7 +651,7 @@ export default function App() {
                     >
                       <div className="flex items-center gap-2">
                         <Users className="w-4 h-4 text-purple-400" />
-                        <span>Gestion Utilisateurs</span>
+                        <span>1. Gestion Utilisateurs</span>
                       </div>
                       <span className="text-[10px] text-slate-400 font-mono-num bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
                         {users.length}
@@ -573,7 +666,7 @@ export default function App() {
                     >
                       <div className="flex items-center gap-2">
                         <Layers className="w-4 h-4 text-amber-400" />
-                        <span>Gestion Citernes</span>
+                        <span>2. Gestion Citernes</span>
                       </div>
                       <span className="text-[10px] text-slate-400 font-mono-num bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
                         {citernes.length}
@@ -588,7 +681,7 @@ export default function App() {
                     >
                       <div className="flex items-center gap-2">
                         <SlidersHorizontal className="w-4 h-4 text-blue-400" />
-                        <span>Types d'Engins</span>
+                        <span>3. Types d'Engins</span>
                       </div>
                       <span className="text-[10px] text-slate-400 font-mono-num bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
                         {vehicleTypes.length}
@@ -603,7 +696,7 @@ export default function App() {
                     >
                       <div className="flex items-center gap-2">
                         <Building2 className="w-4 h-4 text-emerald-400" />
-                        <span>Gestion Fournisseurs</span>
+                        <span>4. Gestion Fournisseurs</span>
                       </div>
                       <span className="text-[10px] text-slate-400 font-mono-num bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
                         {fournisseurs.length}
@@ -618,12 +711,41 @@ export default function App() {
                     >
                       <div className="flex items-center gap-2">
                         <Truck className="w-4 h-4 text-cyan-400" />
-                        <span>Parc Véhicules & Flotte</span>
+                        <span>5. Parc Véhicules & Flotte</span>
                       </div>
                       <span className="text-[10px] text-slate-400 font-mono-num bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
                         {vehicles.length}
                       </span>
                     </button>
+
+                    <div className="pt-1 mt-1 border-t border-slate-800">
+                      <button
+                        onClick={() => handleNavigateToGestion('themes')}
+                        className={`w-full px-3 py-2.5 text-left flex items-center justify-between text-xs hover:bg-slate-800 transition ${
+                          activeTab === 'gestion' && gestionSubTab === 'themes' ? 'text-amber-400 font-bold bg-slate-800/60' : 'text-amber-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Palette className="w-4 h-4 text-amber-400" />
+                          <span>Thèmes Graphiques</span>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => handleNavigateToGestion('stockage_local')}
+                        className={`w-full px-3 py-2.5 text-left flex items-center justify-between text-xs hover:bg-slate-800 transition ${
+                          activeTab === 'gestion' && gestionSubTab === 'stockage_local' ? 'text-emerald-400 font-bold bg-slate-800/60' : 'text-emerald-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <HardDrive className="w-4 h-4 text-emerald-400" />
+                          <span>Stockage Local & Sauvegardes</span>
+                        </div>
+                        <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-bold">
+                          Persistant
+                        </span>
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -643,6 +765,16 @@ export default function App() {
 
             {/* Live Clock & Status Badge */}
             <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleForceSaveLocal}
+                title="Enregistrer manuellement toutes les tables localement"
+                className="hidden lg:flex items-center gap-1.5 bg-slate-950 hover:bg-slate-850 px-2.5 py-1.5 rounded-lg border border-slate-800 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition cursor-pointer"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>Stockage Local</span>
+              </button>
+
               <div className="hidden lg:flex items-center gap-2 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800 text-xs font-mono-num text-slate-300">
                 <Clock className="w-3.5 h-3.5 text-amber-500" />
                 <span>{currentTime}</span>
@@ -696,7 +828,7 @@ export default function App() {
             <div className="pt-2 border-t border-slate-800">
               <div className="px-3 py-1 text-[11px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
                 <Settings className="w-3.5 h-3.5" />
-                <span>Centre de Gestion</span>
+                <span>Centre de Gestion & Administration</span>
               </div>
               <div className="space-y-1 pl-2">
                 <button
@@ -758,6 +890,31 @@ export default function App() {
                     <span>5. Parc Véhicules & Flotte</span>
                   </div>
                   <span className="font-mono-num text-[10px] text-slate-400">({vehicles.length})</span>
+                </button>
+
+                <button
+                  onClick={() => handleNavigateToGestion('themes')}
+                  className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
+                    activeTab === 'gestion' && gestionSubTab === 'themes' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-amber-400'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Palette className="w-4 h-4" />
+                    <span>6. Thèmes Graphiques</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => handleNavigateToGestion('stockage_local')}
+                  className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
+                    activeTab === 'gestion' && gestionSubTab === 'stockage_local' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-emerald-400'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <HardDrive className="w-4 h-4" />
+                    <span>7. Stockage Local & Sauvegardes</span>
+                  </div>
+                  <span className="font-mono-num text-[10px] font-bold">Persistant</span>
                 </button>
               </div>
             </div>
@@ -836,6 +993,22 @@ export default function App() {
             onUpdateVehicle={handleUpdateVehicle}
             onDeleteVehicle={handleDeleteVehicle}
             onImportVehicles={handleImportVehicles}
+            currentTheme={currentTheme}
+            onSelectTheme={setCurrentTheme}
+            storageStats={{
+              citernesCount: citernes.length,
+              vehiclesCount: vehicles.length,
+              entriesCount: entries.length,
+              dispensesCount: dispenses.length,
+              usersCount: users.length,
+              fournisseursCount: fournisseurs.length,
+              vehicleTypesCount: vehicleTypes.length,
+              alertsCount: alerts.length
+            }}
+            onForceSaveLocal={handleForceSaveLocal}
+            onExportBackup={handleExportBackup}
+            onImportBackup={handleImportBackup}
+            onResetDemo={handlePerformReset}
           />
         )}
 
@@ -850,21 +1023,33 @@ export default function App() {
           <div className="flex items-center gap-2">
             <span className="font-semibold text-slate-300">HydroGasoil Plant System</span>
             <span className="text-slate-600">•</span>
-            <span>Compatible Windows (Win32/Tauri/Flutter) & Android (Tablettes durcies Zebra/Honeywell)</span>
+            <span>Compatible Windows & Android • Stockage Local Persistant</span>
           </div>
 
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setIsResetModalOpen(true)}
+              onClick={() => handleNavigateToGestion('themes')}
               className="text-slate-400 hover:text-amber-400 transition flex items-center gap-1 text-[11px] cursor-pointer"
             >
-              <RefreshCw className="w-3 h-3" />
-              <span>Réinitialiser Données Démo</span>
+              <Palette className="w-3 h-3 text-amber-400" />
+              <span>Thème: {AVAILABLE_THEMES.find(t => t.id === currentTheme)?.nom || currentTheme}</span>
             </button>
             <span className="text-slate-600">|</span>
-            <span className="font-mono-num text-[11px] text-slate-500">
-              Serveur Dépôt: 192.168.1.10:5432 (PostgreSQL)
-            </span>
+            <button
+              onClick={handleForceSaveLocal}
+              className="text-slate-400 hover:text-emerald-400 transition flex items-center gap-1 text-[11px] cursor-pointer"
+            >
+              <HardDrive className="w-3 h-3 text-emerald-400" />
+              <span>Données Locales Sécurisées</span>
+            </button>
+            <span className="text-slate-600">|</span>
+            <button
+              onClick={() => setIsResetModalOpen(true)}
+              className="text-slate-400 hover:text-red-400 transition flex items-center gap-1 text-[11px] cursor-pointer"
+            >
+              <RefreshCw className="w-3 h-3" />
+              <span>Réinitialiser</span>
+            </button>
           </div>
         </div>
       </footer>

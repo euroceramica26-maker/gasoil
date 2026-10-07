@@ -3,7 +3,7 @@ import { FuelDispense, Vehicle, Citerne } from '../types';
 import { SignaturePad } from './SignaturePad';
 import { PrintReceiptModal } from './PrintReceiptModal';
 import { ConfirmModal } from './ConfirmModal';
-import { Fuel, Plus, Printer, AlertTriangle, CheckCircle2, TrendingUp, Calendar, User, Gauge, X, FileSignature, Trash2 } from 'lucide-react';
+import { Fuel, Plus, Printer, AlertTriangle, CheckCircle2, TrendingUp, Calendar, User, Gauge, X, FileSignature, Trash2, PenTool } from 'lucide-react';
 
 interface FuelDispensesModuleProps {
   dispenses: FuelDispense[];
@@ -23,6 +23,7 @@ export const FuelDispensesModule: React.FC<FuelDispensesModuleProps> = ({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedDispenseForPrint, setSelectedDispenseForPrint] = useState<FuelDispense | null>(null);
   const [dispenseToDelete, setDispenseToDelete] = useState<FuelDispense | null>(null);
+  const [viewSignatures, setViewSignatures] = useState<FuelDispense | null>(null);
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -35,6 +36,8 @@ export const FuelDispensesModule: React.FC<FuelDispensesModuleProps> = ({
   const [compteurActuel, setCompteurActuel] = useState<number>(0);
   const [remarques, setRemarques] = useState('');
   const [signatureChauffeur, setSignatureChauffeur] = useState('');
+  const [signaturePompiste, setSignaturePompiste] = useState('');
+  const [activeSignatoryTab, setActiveSignatoryTab] = useState<'pompiste' | 'chauffeur'>('pompiste');
 
   const currentVehicle = vehicles.find(v => v.id === selectedVehicleId);
   const currentCiterne = citernes.find(c => c.id === citerneId);
@@ -66,6 +69,8 @@ export const FuelDispensesModule: React.FC<FuelDispensesModuleProps> = ({
     setPompiste('Samir Chaabane');
     setRemarques('');
     setSignatureChauffeur('');
+    setSignaturePompiste('');
+    setActiveSignatoryTab('pompiste');
     setIsFormOpen(true);
   };
 
@@ -112,6 +117,7 @@ export const FuelDispensesModule: React.FC<FuelDispensesModuleProps> = ({
       ratioConsommation: Number(calculatedRatio.toFixed(2)),
       surconsommationAlerte: isOverconsumption,
       signatureChauffeur,
+      signaturePompiste,
       remarques
     };
 
@@ -259,6 +265,21 @@ export const FuelDispensesModule: React.FC<FuelDispensesModuleProps> = ({
 
                     <td className="p-3.5 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setViewSignatures(dsp)}
+                          className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-700 transition cursor-pointer"
+                          title="Consulter les émargements pompiste & chauffeur"
+                        >
+                          <FileSignature className="w-3.5 h-3.5 text-blue-400" />
+                          <span>Signatures</span>
+                          {dsp.signaturePompiste && dsp.signatureChauffeur ? (
+                            <span className="w-2 h-2 rounded-full bg-emerald-400" title="2/2 signatures" />
+                          ) : (
+                            <span className="w-2 h-2 rounded-full bg-amber-400" title="1/2 signature" />
+                          )}
+                        </button>
+
                         <button
                           onClick={() => setSelectedDispenseForPrint(dsp)}
                           className="px-3 py-1.5 bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-700 transition cursor-pointer"
@@ -470,15 +491,79 @@ export const FuelDispensesModule: React.FC<FuelDispensesModuleProps> = ({
                 />
               </div>
 
-              {/* Signature Capture */}
-              <div className="pt-1">
-                <SignaturePad
-                  signatoryTitle="Émargement Manuscrit du Chauffeur / Destinataire"
-                  onSave={(signatureData) => {
-                    setSignatureChauffeur(signatureData);
-                  }}
-                  initialSignature={signatureChauffeur}
-                />
+              {/* Dual Signature Capture : Pompiste Distributeur & Chauffeur */}
+              <div className="pt-2 border-t border-slate-800 space-y-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                  <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5 font-industrial">
+                    <FileSignature className="w-4 h-4 text-amber-500" />
+                    Double Émargement Manuscrit (Pompiste Distributeur & Chauffeur)
+                  </span>
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <span className={`px-2 py-0.5 rounded-full flex items-center gap-1 font-semibold ${
+                      signaturePompiste ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-400'
+                    }`}>
+                      {signaturePompiste ? '✓ Pompiste signé' : '○ Pompiste à signer'}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full flex items-center gap-1 font-semibold ${
+                      signatureChauffeur ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-400'
+                    }`}>
+                      {signatureChauffeur ? '✓ Chauffeur signé' : '○ Chauffeur à signer'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Tabs to select which signatory is currently signing */}
+                <div className="flex rounded-xl bg-slate-950 p-1 border border-slate-800 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setActiveSignatoryTab('pompiste')}
+                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                      activeSignatoryTab === 'pompiste'
+                        ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <PenTool className="w-3.5 h-3.5" />
+                    <span>1. Signature Pompiste ({pompiste || 'Pompiste'})</span>
+                    {signaturePompiste && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-950 stroke-[3]" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSignatoryTab('chauffeur')}
+                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                      activeSignatoryTab === 'chauffeur'
+                        ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <PenTool className="w-3.5 h-3.5" />
+                    <span>2. Signature Chauffeur ({chauffeur || 'Chauffeur'})</span>
+                    {signatureChauffeur && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-950 stroke-[3]" />}
+                  </button>
+                </div>
+
+                {activeSignatoryTab === 'pompiste' ? (
+                  <SignaturePad
+                    key="pad-pompiste"
+                    signatoryTitle={`Émargement Manuscrit du Pompiste Distributeur : ${pompiste}`}
+                    onSave={(signatureData) => {
+                      setSignaturePompiste(signatureData);
+                      if (!signatureChauffeur) {
+                        setTimeout(() => setActiveSignatoryTab('chauffeur'), 400);
+                      }
+                    }}
+                    initialSignature={signaturePompiste}
+                  />
+                ) : (
+                  <SignaturePad
+                    key="pad-chauffeur"
+                    signatoryTitle={`Émargement Manuscrit du Chauffeur / Destinataire : ${chauffeur}`}
+                    onSave={(signatureData) => {
+                      setSignatureChauffeur(signatureData);
+                    }}
+                    initialSignature={signatureChauffeur}
+                  />
+                )}
               </div>
 
               {/* Buttons */}
@@ -533,6 +618,95 @@ export const FuelDispensesModule: React.FC<FuelDispensesModuleProps> = ({
           }}
           onCancel={() => setDispenseToDelete(null)}
         />
+      )}
+      {/* Modal Consultation des Signatures (Pompiste & Chauffeur) */}
+      {viewSignatures && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 max-w-lg w-full shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+              <div>
+                <h4 className="text-base font-bold text-slate-100 flex items-center gap-2 font-industrial">
+                  <FileSignature className="w-5 h-5 text-amber-500" />
+                  Émargements Manuscris : {viewSignatures.codeTicket}
+                </h4>
+                <p className="text-xs text-slate-400">
+                  Distribution de {viewSignatures.volumeLivre.toLocaleString('fr-FR')} L • {new Date(viewSignatures.dateHeure).toLocaleDateString('fr-FR')}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewSignatures(null)}
+                className="text-slate-400 hover:text-white p-1 rounded cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Pompiste Signature Card */}
+              <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">
+                    Pompiste Distributeur
+                  </span>
+                  <span className="text-[10px] text-amber-400 font-mono-num">
+                    Agent usine
+                  </span>
+                </div>
+                <div className="text-xs font-semibold text-slate-200">
+                  {viewSignatures.pompiste}
+                </div>
+                <div className="h-28 bg-white rounded-lg p-2 border border-slate-600 flex items-center justify-center">
+                  {viewSignatures.signaturePompiste ? (
+                    <img
+                      src={viewSignatures.signaturePompiste}
+                      alt="Signature Pompiste"
+                      className="max-h-full max-w-full object-contain"
+                    />
+                  ) : (
+                    <span className="text-xs text-slate-400 italic">Signature non renseignée</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Chauffeur Signature Card */}
+              <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">
+                    Chauffeur / Opérateur
+                  </span>
+                  <span className="text-[10px] text-cyan-400 font-mono-num">
+                    Destinataire
+                  </span>
+                </div>
+                <div className="text-xs font-semibold text-slate-200">
+                  {viewSignatures.chauffeur}
+                </div>
+                <div className="h-28 bg-white rounded-lg p-2 border border-slate-600 flex items-center justify-center">
+                  {viewSignatures.signatureChauffeur ? (
+                    <img
+                      src={viewSignatures.signatureChauffeur}
+                      alt="Signature Chauffeur"
+                      className="max-h-full max-w-full object-contain"
+                    />
+                  ) : (
+                    <span className="text-xs text-slate-400 italic">Signature non renseignée</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 pt-3 border-t border-slate-800 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setViewSignatures(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold transition cursor-pointer"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

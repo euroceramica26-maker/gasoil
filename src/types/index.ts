@@ -68,7 +68,33 @@ export interface FuelDispense {
   ratioConsommation: number; // L/100km ou L/h calculé
   surconsommationAlerte: boolean;
   signatureChauffeur?: string;
+  signaturePompiste?: string;
   remarques?: string;
+}
+
+export type AppTheme = 
+  | 'or-imperial' 
+  | 'bleu-saphir' 
+  | 'emeraude-prestige' 
+  | 'platine-epure' 
+  | 'cuivre-cognac'
+  // Compatibilité avec les anciennes valeurs
+  | 'sombre-ambre' 
+  | 'chantier-orange' 
+  | 'marine-bleu' 
+  | 'eco-vert' 
+  | 'atelier-clair';
+
+export interface ThemeConfig {
+  id: AppTheme;
+  nom: string;
+  description: string;
+  accentHex: string;
+  bgHex: string;
+  accentClass: string;
+  accentBgClass: string;
+  borderAccentClass: string;
+  isDark: boolean;
 }
 
 export type UserRole = 'Administrateur' | 'Chef de Dépôt' | 'Pompiste' | 'Chauffeur / Opérateur' | 'Responsable Maintenance';

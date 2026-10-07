@@ -4,23 +4,35 @@ import {
   Citerne, 
   Vehicle, 
   Fournisseur, 
-  VehicleTypeConfig 
+  VehicleTypeConfig,
+  AppTheme
 } from '../types';
 import { UsersModule } from './UsersModule';
 import { CiternesModule } from './CiternesModule';
 import { VehiclesModule } from './VehiclesModule';
 import { FournisseursModule } from './FournisseursModule';
 import { VehicleTypesModule } from './VehicleTypesModule';
+import { ThemeSelectorModule } from './ThemeSelectorModule';
+import { LocalStorageModule } from './LocalStorageModule';
 import { 
   Settings, 
   Users, 
   Layers, 
   SlidersHorizontal, 
   Building2, 
-  Truck 
+  Truck,
+  Palette,
+  HardDrive
 } from 'lucide-react';
 
-export type GestionSubTab = 'utilisateurs' | 'citernes' | 'types_engins' | 'fournisseurs' | 'parc_vehicules';
+export type GestionSubTab = 
+  | 'utilisateurs' 
+  | 'citernes' 
+  | 'types_engins' 
+  | 'fournisseurs' 
+  | 'parc_vehicules'
+  | 'themes'
+  | 'stockage_local';
 
 interface GestionHubProps {
   initialSubTab?: GestionSubTab;
@@ -51,6 +63,24 @@ interface GestionHubProps {
   onUpdateVehicle: (vehicle: Vehicle) => void;
   onDeleteVehicle: (id: string) => void;
   onImportVehicles: (imported: Vehicle[]) => void;
+  // Themes
+  currentTheme: AppTheme;
+  onSelectTheme: (theme: AppTheme) => void;
+  // Local storage management
+  storageStats: {
+    citernesCount: number;
+    vehiclesCount: number;
+    entriesCount: number;
+    dispensesCount: number;
+    usersCount: number;
+    fournisseursCount: number;
+    vehicleTypesCount: number;
+    alertsCount: number;
+  };
+  onForceSaveLocal: () => void;
+  onExportBackup: () => void;
+  onImportBackup: (jsonData: any) => boolean;
+  onResetDemo: () => void;
 }
 
 export const GestionHub: React.FC<GestionHubProps> = ({
@@ -76,7 +106,14 @@ export const GestionHub: React.FC<GestionHubProps> = ({
   onAddVehicle,
   onUpdateVehicle,
   onDeleteVehicle,
-  onImportVehicles
+  onImportVehicles,
+  currentTheme,
+  onSelectTheme,
+  storageStats,
+  onForceSaveLocal,
+  onExportBackup,
+  onImportBackup,
+  onResetDemo
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<GestionSubTab>(initialSubTab);
 
@@ -119,6 +156,19 @@ export const GestionHub: React.FC<GestionHubProps> = ({
       icon: Truck,
       count: vehicles.length,
       badgeColor: 'text-cyan-400 bg-cyan-950/80 border-cyan-500/30'
+    },
+    {
+      id: 'themes' as GestionSubTab,
+      label: 'Thèmes Graphiques',
+      icon: Palette,
+      badgeColor: 'text-amber-400 bg-amber-950/80 border-amber-500/30'
+    },
+    {
+      id: 'stockage_local' as GestionSubTab,
+      label: 'Stockage Local',
+      icon: HardDrive,
+      count: 'Actif',
+      badgeColor: 'text-emerald-400 bg-emerald-950/80 border-emerald-500/30'
     }
   ];
 
@@ -136,7 +186,7 @@ export const GestionHub: React.FC<GestionHubProps> = ({
                 Centre de Gestion & Administration du Site
               </h2>
               <p className="text-xs text-slate-400">
-                Administration unifiée des 5 piliers : Utilisateurs, Citernes, Types d'engins, Fournisseurs et Flotte
+                Administration unifiée : Utilisateurs, Citernes, Types d'engins, Fournisseurs, Parc Véhicules, Thèmes et Stockage local
               </p>
             </div>
           </div>
@@ -217,6 +267,23 @@ export const GestionHub: React.FC<GestionHubProps> = ({
             onUpdateVehicle={onUpdateVehicle}
             onDeleteVehicle={onDeleteVehicle}
             onImportVehicles={onImportVehicles}
+          />
+        )}
+
+        {activeSubTab === 'themes' && (
+          <ThemeSelectorModule
+            currentTheme={currentTheme}
+            onSelectTheme={onSelectTheme}
+          />
+        )}
+
+        {activeSubTab === 'stockage_local' && (
+          <LocalStorageModule
+            stats={storageStats}
+            onForceSave={onForceSaveLocal}
+            onExportBackup={onExportBackup}
+            onImportBackup={onImportBackup}
+            onResetDemo={onResetDemo}
           />
         )}
       </div>
