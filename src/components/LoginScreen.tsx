@@ -133,16 +133,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             <Fuel className="w-8 h-8 text-slate-950 stroke-[2.5]" />
           </div>
           <div>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 mb-1.5 bg-red-950/80 border border-red-500/40 rounded-full text-[10px] text-red-300 font-bold uppercase tracking-wider">
+              <span>🇲🇦 ROYAUME DU MAROC</span>
+            </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-industrial text-white flex items-center justify-center gap-2">
-              HydroGasoil <span className="text-amber-400 font-mono-num">PRO</span>
+              HydroGasoil <span className="text-amber-400 font-mono-num">MAROC</span>
             </h1>
             <p className="text-xs sm:text-sm text-slate-400 font-medium mt-1">
-              Gestion de Carburant & Contrôle Métrologique Usine
+              Supervision Carburant & Contrôle Métrologique • Dépôts Mohammedia & Jorf Lasfar
             </p>
           </div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-900 border border-slate-800 rounded-full text-[11px] text-amber-400 font-semibold">
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Portail d'Authentification Opérateur</span>
+            <span>Portail d'Authentification Sécurisé</span>
           </div>
         </div>
 

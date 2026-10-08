@@ -92,8 +92,12 @@ export const PrintReceiptModal: React.FC<PrintReceiptModalProps> = ({
         <div style="margin-bottom: 16px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; font-size: ${isA4 ? '13px' : '11px'};">
           <table style="width: 100%; border-collapse: collapse;">
             <tr>
-              <td style="padding: 4px; font-weight: bold; color: #475569; width: 45%;">Engin / Véhicule :</td>
-              <td style="padding: 4px; font-weight: bold; color: #0f172a;">${targetVehicle ? `${targetVehicle.code} (${targetVehicle.marque} ${targetVehicle.modele})` : dispense.vehiculeId}</td>
+              <td style="padding: 4px; font-weight: bold; color: #475569; width: 45%;">Plaque Immatriculation :</td>
+              <td style="padding: 4px; font-weight: 800; font-family: monospace; font-size: 13px; color: #0f172a;">${targetVehicle?.immatriculation || 'N/A'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px; font-weight: bold; color: #475569;">Modèle & Marque :</td>
+              <td style="padding: 4px; font-weight: bold; color: #0f172a;">${targetVehicle ? `${targetVehicle.modele} (${targetVehicle.marque} • ${targetVehicle.code})` : dispense.vehiculeId}</td>
             </tr>
             <tr>
               <td style="padding: 4px; font-weight: bold; color: #475569;">Citerne Source :</td>
@@ -121,7 +125,7 @@ export const PrintReceiptModal: React.FC<PrintReceiptModalProps> = ({
           <tbody>
             <tr style="border-bottom: 1px solid #e2e8f0;">
               <td style="padding: 8px; font-weight: bold;">Volume Carburant Pistolet</td>
-              <td style="padding: 8px; text-align: right; font-weight: bold; font-size: 15px; color: #0284c7;">${dispense.volumeLivre.toLocaleString('fr-FR')} L</td>
+              <td style="padding: 8px; text-align: right; font-weight: bold; font-size: 15px; color: #0284c7;">${dispense.volumeLivre.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} L</td>
               <td style="padding: 8px; color: #64748b;">Distribution certifiée</td>
             </tr>
             <tr style="border-bottom: 1px solid #e2e8f0; background: #f8fafc;">
@@ -239,9 +243,11 @@ export const PrintReceiptModal: React.FC<PrintReceiptModalProps> = ({
   <div class="wrapper">
     <div class="header">
       <div>
-        <h2 style="margin: 0; font-size: ${isA4 ? '18px' : '14px'}; font-weight: 800; color: #0f172a; text-transform: uppercase;">HYDRO-GASOIL PLANT</h2>
-        <div style="font-size: 10px; color: #475569; margin-top: 2px;">Complexe Industriel • Gestion Carburant & Énergie</div>
-        <div style="font-size: 9px; color: #64748b;">Contrôle Métrologique & Normes Dépôt</div>
+        <div style="font-size: 10px; font-weight: 700; color: #b91c1c; letter-spacing: 1px; text-transform: uppercase;">🇲🇦 ROYAUME DU MAROC</div>
+        <h2 style="margin: 1px 0 0 0; font-size: ${isA4 ? '18px' : '14px'}; font-weight: 800; color: #0f172a; text-transform: uppercase;">HYDRO-GASOIL MAROC</h2>
+        <div style="font-size: 10px; color: #475569; margin-top: 2px;">Complexe Industriel & Dépôt d’Hydrocarbures • Mohammedia / Jorf Lasfar</div>
+        <div style="font-size: 9px; color: #64748b;">Contrôle Métrologique & Spécifications Marocaines Gasoil 10ppm</div>
+        <div style="font-size: 8px; color: #94a3b8; margin-top: 2px; font-family: monospace;">ICE: 002849102000084 • RC: 492019 Casablanca • IF: 38102948</div>
       </div>
       <div style="text-align: right;">
         <div style="background: #0f172a; color: white; padding: 4px 8px; font-weight: bold; font-family: monospace; font-size: 12px; display: inline-block;">${docRef}</div>
@@ -277,7 +283,7 @@ export const PrintReceiptModal: React.FC<PrintReceiptModalProps> = ({
     </div>
 
     <div class="footer">
-      <div>HYDROGASOIL v4.2 • REF: ${isEntree ? entry?.id : dispense?.id}</div>
+      <div>HYDROGASOIL MAROC v4.6 • Plateforme Conforme Normes Dépôts & Carburants Maroc • REF: ${isEntree ? entry?.id : dispense?.id}</div>
       <div style="letter-spacing: 2px; font-weight: bold;">|||| | ||||| ||| ||||||| ||</div>
     </div>
   </div>
@@ -459,14 +465,17 @@ export const PrintReceiptModal: React.FC<PrintReceiptModalProps> = ({
             {/* Plant Header */}
             <div className="flex justify-between items-start border-b-2 border-slate-900 pb-4 mb-4">
               <div>
-                <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-950 uppercase font-industrial">
-                  HYDRO-GASOIL INDUSTRIAL PLANT
+                <div className="text-[10px] font-bold text-red-600 tracking-wider uppercase flex items-center gap-1">
+                  <span>🇲🇦 ROYAUME DU MAROC</span>
+                </div>
+                <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-950 uppercase font-industrial mt-0.5">
+                  HYDRO-GASOIL MAROC
                 </h1>
                 <p className="text-xs text-slate-600 mt-0.5">
-                  Complexe Industriel & Unité de Production Énergétique
+                  Complexe Industriel & Dépôt d’Hydrocarbures • Mohammedia / Jorf Lasfar
                 </p>
-                <p className="text-[11px] text-slate-500">
-                  Dépôt Hydrocarbures • Contrôle Métrologique & Qualité
+                <p className="text-[11px] text-slate-500 font-mono-num">
+                  Contrôle Métrologique NM • ICE: 002849102000084 • RC Casablanca 492019
                 </p>
               </div>
               <div className="text-right shrink-0">
@@ -560,12 +569,16 @@ export const PrintReceiptModal: React.FC<PrintReceiptModalProps> = ({
               <div className="space-y-4 text-xs">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3 rounded border border-slate-200">
                   <div>
-                    <span className="text-slate-500 block font-medium">Véhicule / Machine :</span>
-                    <span className="font-bold text-slate-900 text-sm">
-                      {targetVehicle ? `${targetVehicle.code} (${targetVehicle.marque} ${targetVehicle.modele})` : dispense.vehiculeId}
+                    <span className="text-slate-500 block font-medium">Immatriculation Véhicule :</span>
+                    <span className="font-mono-num font-extrabold text-slate-900 text-sm bg-slate-200 px-2 py-0.5 rounded border border-slate-300 inline-block mb-1">
+                      {targetVehicle?.immatriculation || 'Non renseignée'}
                     </span>
-                    <span className="text-slate-600 block text-[11px]">
-                      Immat: {targetVehicle?.immatriculation} • Type: {targetVehicle?.type}
+                    <span className="text-slate-500 block font-medium mt-1">Modèle & Marque :</span>
+                    <span className="font-bold text-slate-900 text-xs block">
+                      {targetVehicle ? `${targetVehicle.modele} (${targetVehicle.marque})` : dispense.vehiculeId}
+                    </span>
+                    <span className="text-slate-600 block text-[11px] mt-0.5">
+                      Réf: {targetVehicle?.code} • {targetVehicle?.type}
                     </span>
                   </div>
                   <div>
@@ -598,7 +611,7 @@ export const PrintReceiptModal: React.FC<PrintReceiptModalProps> = ({
                       <tr>
                         <td className="p-2 font-medium">Volume Carburant Pompé</td>
                         <td className="p-2 text-right font-mono-num font-bold text-sm text-slate-950">
-                          {dispense.volumeLivre.toLocaleString('fr-FR')} Litres
+                          {dispense.volumeLivre.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} Litres
                         </td>
                         <td className="p-2 text-slate-600">Distribution pistolet étalonné</td>
                       </tr>

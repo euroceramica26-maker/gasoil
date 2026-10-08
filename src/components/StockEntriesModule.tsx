@@ -51,14 +51,14 @@ export const StockEntriesModule: React.FC<StockEntriesModuleProps> = ({
     setFormData({
       numeroBon: `BL-2026-${Math.floor(1000 + Math.random() * 9000)}`,
       dateLivraison: new Date().toISOString().slice(0, 16),
-      fournisseur: 'TotalEnergies Commercial Fuels',
-      chauffeurLivreur: 'Karim Mansouri',
-      immatriculationCiterneLivreur: 'TN-5840-X',
+      fournisseur: fournisseurs[0]?.nom || 'Afriquia SMDC (Groupe Akwa)',
+      chauffeurLivreur: 'Nabil Cherkaoui',
+      immatriculationCiterneLivreur: 'MA-89410-A-6',
       citerneId: citernes[0]?.id || '',
       quantiteLivree: 20000,
       densiteMesuree: 0.841,
       temperatureMesuree: 18.0,
-      receptionnaireUsine: 'Ahmed Benali (Chef Dépôt)',
+      receptionnaireUsine: 'Ahmed Benali (Chef Dépôt Mohammedia)',
       signatureBase64: '',
       notes: 'Plombage citerne conforme, test décantation fond de cuve OK.'
     });
@@ -353,7 +353,7 @@ export const StockEntriesModule: React.FC<StockEntriesModuleProps> = ({
                     required
                     value={formData.immatriculationCiterneLivreur}
                     onChange={e => setFormData({...formData, immatriculationCiterneLivreur: e.target.value})}
-                    placeholder="TN-8941-A"
+                    placeholder="ex: 89410-A-6 ou MA-58401-B-1"
                     className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded text-slate-100 font-mono-num"
                   />
                 </div>

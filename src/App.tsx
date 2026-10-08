@@ -124,32 +124,86 @@ export default function App() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Migration automatique vers les données et standards marocains si ancien jeu de données détecté
+  const migrateStorageData = (raw: string): string => {
+    return raw
+      .replace(/\+216\s?71\s?110\s?220/g, '+212 5 22 35 10 20')
+      .replace(/\+216\s?71\s?890\s?400/g, '+212 5 22 43 70 00')
+      .replace(/\+216\s?72\s?445\s?100/g, '+212 5 22 46 20 00')
+      .replace(/\+216\s?71\s?780\s?120/g, '+212 5 22 67 80 00')
+      .replace(/\+216\s?71\s?884\s?102/g, '+212 5 22 88 41 02')
+      .replace(/\+216\s?98\s?441\s?200/g, '+212 6 61 44 12 00')
+      .replace(/\+216\s?97\s?332\s?119/g, '+212 6 62 33 21 19')
+      .replace(/\+216\s?71\s?500\s?900/g, '+212 5 22 50 09 00')
+      .replace(/\+216\s?22\s?991\s?304/g, '+212 6 70 99 13 04')
+      .replace(/\+216\s?55\s?410\s?782/g, '+212 6 63 41 07 82')
+      .replace(/\+216\s/g, '+212 ')
+      .replace(/TN-9821-B/g, 'MA-89410-A-6')
+      .replace(/TN-4410-X/g, 'MA-58401-B-1')
+      .replace(/TN-6192-A/g, 'MA-44102-D-40')
+      .replace(/TN-5840-X/g, 'MA-89410-A-6')
+      .replace(/TN-/g, 'MA-')
+      .replace(/Zone Dépôt Nord - Quai 1/g, 'Zone Pétrolière Mohammedia - Quai 1')
+      .replace(/Atelier Central - Quai 2/g, 'Atelier Central Jorf Lasfar - Quai 2')
+      .replace(/Centrale Électrique Bâtiment 4/g, 'Centrale Électrique Casablanca - Bâtiment 4')
+      .replace(/Zone Industrielle Rades/g, 'Tour Akwa, Aïn Sebaâ, Casablanca')
+      .replace(/Zone Portuaire Bizerte/g, 'Zone Industrielle Aïn Sebaâ, Casablanca')
+      .replace(/Zone Industrielle Charguia II/g, 'Boulevard Ahl Loghlam, Sidi Bernoussi, Casablanca')
+      .replace(/TotalEnergies Commercial Fuels/g, 'Afriquia SMDC (Groupe Akwa)')
+      .replace(/Petromin Distribution Industrielle/g, 'Vivo Energy Maroc (Shell)')
+      .replace(/Petromin Distribution/g, 'Vivo Energy Maroc (Shell)')
+      .replace(/@totalenergies\.tn/g, '@totalenergies.ma')
+      .replace(/@petromin-fuels\.com/g, '@petrom.ma')
+      .replace(/@usine-hydro\.com/g, '@hydro-maroc.com');
+  };
+
   // --- STATE WITH LOCALSTORAGE PERSISTENCE (ENREGISTREMENT LOCAL) ---
   const [citernes, setCiternes] = useState<Citerne[]>(() => {
     const saved = localStorage.getItem('hg_citernes');
-    return saved ? JSON.parse(saved) : INITIAL_CITERNES;
+    if (!saved) return INITIAL_CITERNES;
+    try {
+      return JSON.parse(migrateStorageData(saved));
+    } catch {
+      return INITIAL_CITERNES;
+    }
   });
 
   const [vehicles, setVehicles] = useState<Vehicle[]>(() => {
     const saved = localStorage.getItem('hg_vehicles');
-    return saved ? JSON.parse(saved) : INITIAL_VEHICLES;
+    if (!saved) return INITIAL_VEHICLES;
+    try {
+      return JSON.parse(migrateStorageData(saved));
+    } catch {
+      return INITIAL_VEHICLES;
+    }
   });
 
   const [entries, setEntries] = useState<StockEntry[]>(() => {
     const saved = localStorage.getItem('hg_entries');
-    return saved ? JSON.parse(saved) : INITIAL_STOCK_ENTRIES;
+    if (!saved) return INITIAL_STOCK_ENTRIES;
+    try {
+      return JSON.parse(migrateStorageData(saved));
+    } catch {
+      return INITIAL_STOCK_ENTRIES;
+    }
   });
 
   const [dispenses, setDispenses] = useState<FuelDispense[]>(() => {
     const saved = localStorage.getItem('hg_dispenses');
-    return saved ? JSON.parse(saved) : INITIAL_DISPENSES;
+    if (!saved) return INITIAL_DISPENSES;
+    try {
+      return JSON.parse(migrateStorageData(saved));
+    } catch {
+      return INITIAL_DISPENSES;
+    }
   });
 
   const [users, setUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem('hg_users');
     if (saved) {
       try {
-        const parsed: User[] = JSON.parse(saved);
+        const migrated = migrateStorageData(saved);
+        const parsed: User[] = JSON.parse(migrated);
         return parsed.map(u => {
           const match = INITIAL_USERS.find(iu => iu.id === u.id || iu.matricule === u.matricule);
           return {
@@ -167,7 +221,12 @@ export default function App() {
 
   const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>(() => {
     const saved = localStorage.getItem('hg_fournisseurs');
-    return saved ? JSON.parse(saved) : INITIAL_FOURNISSEURS;
+    if (!saved) return INITIAL_FOURNISSEURS;
+    try {
+      return JSON.parse(migrateStorageData(saved));
+    } catch {
+      return INITIAL_FOURNISSEURS;
+    }
   });
 
   const [vehicleTypes, setVehicleTypes] = useState<VehicleTypeConfig[]>(() => {
@@ -607,15 +666,16 @@ export default function App() {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h1 className="font-industrial font-bold text-base sm:text-lg tracking-wider text-slate-100">
-                    HYDRO-GASOIL
+                  <h1 className="font-industrial font-bold text-base sm:text-lg tracking-wider text-slate-100 flex items-center gap-1.5">
+                    HYDRO-GASOIL <span className="text-amber-400">MAROC</span>
                   </h1>
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-amber-400 border border-slate-700">
-                    v4.6 PRO
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-amber-400 border border-slate-700 flex items-center gap-1">
+                    <span>🇲🇦</span>
+                    <span>v4.6 PRO</span>
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400 hidden sm:block">
-                  Supervision & Gestion Carburant • Citernes, Flotte & Opérateurs
+                  Supervision & Gestion Carburant • Citernes, Flotte & Opérateurs (Royaume du Maroc)
                 </p>
               </div>
             </div>

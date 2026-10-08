@@ -59,7 +59,7 @@ export const FournisseursModule: React.FC<FournisseursModuleProps> = ({
       code: `FRS-0${fournisseurs.length + 1}`,
       nom: '',
       contactNom: '',
-      telephone: '+216 ',
+      telephone: '+212 ',
       email: '',
       adresse: '',
       typeGasoilFourni: 'Gasoil Standard 10ppm',
@@ -416,7 +416,7 @@ export const FournisseursModule: React.FC<FournisseursModuleProps> = ({
                     type="text"
                     value={formData.telephone}
                     onChange={e => setFormData({...formData, telephone: e.target.value})}
-                    placeholder="+216 71 ..."
+                    placeholder="+212 5 22 ... ou +212 6 ..."
                     className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded text-slate-100"
                   />
                 </div>
@@ -429,7 +429,7 @@ export const FournisseursModule: React.FC<FournisseursModuleProps> = ({
                     type="email"
                     value={formData.email}
                     onChange={e => setFormData({...formData, email: e.target.value})}
-                    placeholder="commercial@fournisseur.tn"
+                    placeholder="contact@fournisseur.ma"
                     className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded text-slate-100"
                   />
                 </div>
@@ -477,7 +477,7 @@ export const FournisseursModule: React.FC<FournisseursModuleProps> = ({
                   type="text"
                   value={formData.adresse}
                   onChange={e => setFormData({...formData, adresse: e.target.value})}
-                  placeholder="Zone Industrielle Rades, Dépôt Sud..."
+                  placeholder="Zone Pétrolière Port Mohammedia, Dépôt Sud ou Casablanca..."
                   className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded text-slate-100"
                 />
               </div>

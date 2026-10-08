@@ -81,7 +81,7 @@ export const UsersModule: React.FC<UsersModuleProps> = ({
       prenom: '',
       role: 'Pompiste',
       email: '',
-      telephone: '+216 ',
+      telephone: '+212 ',
       statut: 'Actif',
       badgeCode: `RFID-${Math.floor(10000 + Math.random() * 90000)}`,
       departement: 'Station Distribution',
@@ -561,7 +561,7 @@ export const UsersModule: React.FC<UsersModuleProps> = ({
                     type="text"
                     value={formData.telephone}
                     onChange={e => setFormData({...formData, telephone: e.target.value})}
-                    placeholder="+216 98 ..."
+                    placeholder="+212 6 61 ... ou +212 5 22 ..."
                     className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded text-slate-100"
                   />
                 </div>
@@ -571,7 +571,7 @@ export const UsersModule: React.FC<UsersModuleProps> = ({
                     type="email"
                     value={formData.email}
                     onChange={e => setFormData({...formData, email: e.target.value})}
-                    placeholder="nom@usine-hydro.com"
+                    placeholder="nom@hydro-maroc.com"
                     className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded text-slate-100"
                   />
                 </div>

@@ -3,7 +3,24 @@ import { FuelDispense, Vehicle, Citerne } from '../types';
 import { SignaturePad } from './SignaturePad';
 import { PrintReceiptModal } from './PrintReceiptModal';
 import { ConfirmModal } from './ConfirmModal';
-import { Fuel, Plus, Printer, AlertTriangle, CheckCircle2, TrendingUp, Calendar, User, Gauge, X, FileSignature, Trash2, PenTool } from 'lucide-react';
+import { 
+  Fuel, 
+  Plus, 
+  Printer, 
+  AlertTriangle, 
+  CheckCircle2, 
+  TrendingUp, 
+  Calendar, 
+  User, 
+  Gauge, 
+  X, 
+  FileSignature, 
+  Trash2, 
+  PenTool,
+  Search,
+  Truck,
+  Car
+} from 'lucide-react';
 
 interface FuelDispensesModuleProps {
   dispenses: FuelDispense[];
@@ -29,10 +46,12 @@ export const FuelDispensesModule: React.FC<FuelDispensesModuleProps> = ({
 
   // Form State
   const [selectedVehicleId, setSelectedVehicleId] = useState(vehicles[0]?.id || '');
+  const [vehicleSearch, setVehicleSearch] = useState('');
   const [citerneId, setCiterneId] = useState(citernes[0]?.id || '');
   const [pompiste, setPompiste] = useState('Samir Chaabane');
   const [chauffeur, setChauffeur] = useState('');
   const [volumeLivre, setVolumeLivre] = useState<number>(150);
+  const [volumeLivreInput, setVolumeLivreInput] = useState<string>('150');
   const [compteurActuel, setCompteurActuel] = useState<number>(0);
   const [remarques, setRemarques] = useState('');
   const [signatureChauffeur, setSignatureChauffeur] = useState('');
@@ -41,6 +60,19 @@ export const FuelDispensesModule: React.FC<FuelDispensesModuleProps> = ({
 
   const currentVehicle = vehicles.find(v => v.id === selectedVehicleId);
   const currentCiterne = citernes.find(c => c.id === citerneId);
+
+  // Filtered vehicles based on search (immatriculation, modèle, marque, code)
+  const filteredVehicles = vehicles.filter(v => {
+    if (!vehicleSearch.trim()) return true;
+    const q = vehicleSearch.toLowerCase().trim();
+    return (
+      v.immatriculation.toLowerCase().includes(q) ||
+      v.modele.toLowerCase().includes(q) ||
+      v.marque.toLowerCase().includes(q) ||
+      v.code.toLowerCase().includes(q) ||
+      v.type.toLowerCase().includes(q)
+    );
+  });
 
   // Auto calculate delta and ratio
   const compteurPrecedent = currentVehicle ? currentVehicle.kilometrageOuHeures : 0;
@@ -65,13 +97,54 @@ export const FuelDispensesModule: React.FC<FuelDispensesModuleProps> = ({
     setCiterneId(citernes[0]?.id || '');
     setCompteurActuel((v?.kilometrageOuHeures || 0) + (v?.uniteMesure === 'km' ? 250 : 12));
     setVolumeLivre(120);
+    setVolumeLivreInput('120');
     setChauffeur('Mourad Kharrat');
     setPompiste('Samir Chaabane');
     setRemarques('');
     setSignatureChauffeur('');
     setSignaturePompiste('');
     setActiveSignatoryTab('pompiste');
+    setVehicleSearch('');
     setIsFormOpen(true);
+  };
+
+  const handleVolumeChange = (rawValue: string) => {
+    // Nettoyer tous les caractères non numériques excepté virgule et point
+    const cleaned = rawValue.replace(/[^0-9.,]/g, '');
+    
+    // Découper à la première virgule ou au premier point
+    const parts = cleaned.split(/[.,]/);
+    let formatted = parts[0] || '';
+    
+    if (parts.length > 1) {
+      // Préserver le séparateur choisi par l'utilisateur (virgule ou point)
+      const separator = cleaned.includes(',') ? ',' : '.';
+      // Tolérer et contraindre strictement à 2 chiffres après la virgule
+      const decimals = parts.slice(1).join('').slice(0, 2);
+      formatted = `${parts[0]}${separator}${decimals}`;
+    }
+    
+    setVolumeLivreInput(formatted);
+    
+    if (!formatted || formatted === ',' || formatted === '.') {
+      setVolumeLivre(0);
+      return;
+    }
+    
+    const parsed = parseFloat(formatted.replace(',', '.'));
+    if (!isNaN(parsed) && parsed >= 0) {
+      setVolumeLivre(Math.round(parsed * 100) / 100);
+    } else {
+      setVolumeLivre(0);
+    }
+  };
+
+  const handleVolumeBlur = () => {
+    // Si l'utilisateur termine avec une virgule ou point orphelin, nettoyer
+    if (volumeLivreInput.endsWith(',') || volumeLivreInput.endsWith('.')) {
+      const trimmed = volumeLivreInput.slice(0, -1);
+      setVolumeLivreInput(trimmed);
+    }
   };
 
   const handleVehicleChange = (vId: string) => {
@@ -88,13 +161,16 @@ export const FuelDispensesModule: React.FC<FuelDispensesModuleProps> = ({
     setFormError(null);
     if (!currentVehicle || !currentCiterne) return;
 
-    if (volumeLivre <= 0) {
-      setFormError('Veuillez saisir un volume de carburant valide supérieur à 0.');
+    // Arrondi précis à 2 décimales
+    const finalVolume = Number((Math.round(volumeLivre * 100) / 100).toFixed(2));
+
+    if (finalVolume <= 0) {
+      setFormError('Veuillez saisir un volume de carburant valide supérieur à 0 (ex: 120 ou 150,25 L).');
       return;
     }
 
-    if (volumeLivre > currentCiterne.stockActuel) {
-      setFormError(`Stock insuffisant dans ${currentCiterne.code} (reste ${currentCiterne.stockActuel.toLocaleString()} L).`);
+    if (finalVolume > currentCiterne.stockActuel) {
+      setFormError(`Stock insuffisant dans ${currentCiterne.code} (reste ${currentCiterne.stockActuel.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} L).`);
       return;
     }
 
@@ -110,7 +186,7 @@ export const FuelDispensesModule: React.FC<FuelDispensesModuleProps> = ({
       vehiculeId: selectedVehicleId,
       pompiste,
       chauffeur: chauffeur || 'Chauffeur de bord',
-      volumeLivre,
+      volumeLivre: finalVolume,
       compteurActuel,
       compteurPrecedent,
       deltaCompteur: delta,
@@ -177,7 +253,7 @@ export const FuelDispensesModule: React.FC<FuelDispensesModuleProps> = ({
             Historique des Distributions ({dispenses.length} pleins)
           </span>
           <span className="text-xs text-slate-500 font-mono-num">
-            Total distribué : {dispenses.reduce((acc, d) => acc + d.volumeLivre, 0).toLocaleString('fr-FR')} L
+            Total distribué : {dispenses.reduce((acc, d) => acc + d.volumeLivre, 0).toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} L
           </span>
         </div>
 
@@ -213,12 +289,20 @@ export const FuelDispensesModule: React.FC<FuelDispensesModuleProps> = ({
                     </td>
 
                     <td className="p-3.5">
-                      <div className="font-semibold text-slate-100 flex items-center gap-1.5">
-                        <span className="text-amber-400 font-industrial">{veh?.code || 'N/A'}</span>
-                        <span>{veh?.marque} {veh?.modele}</span>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="font-mono-num font-bold text-amber-300 bg-slate-950 px-2 py-0.5 rounded border border-slate-700 shadow-sm text-[11px]">
+                          {veh?.immatriculation || 'Sans immat'}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono-num bg-slate-800 px-1.5 py-0.5 rounded">
+                          {veh?.code || 'N/A'}
+                        </span>
                       </div>
-                      <span className="text-[11px] text-slate-400 font-mono-num block">
-                        Immat: {veh?.immatriculation} • {veh?.departement}
+                      <div className="font-semibold text-slate-100 flex items-center gap-1">
+                        <span className="text-slate-400 text-[11px]">{veh?.marque}</span>
+                        <span className="text-white text-xs font-bold">{veh?.modele}</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
+                        {veh?.type} • {veh?.departement}
                       </span>
                     </td>
 
@@ -232,7 +316,7 @@ export const FuelDispensesModule: React.FC<FuelDispensesModuleProps> = ({
                     </td>
 
                     <td className="p-3.5 font-mono-num font-bold text-sm text-slate-100">
-                      {dsp.volumeLivre.toLocaleString('fr-FR')} L
+                      {dsp.volumeLivre.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} L
                     </td>
 
                     <td className="p-3.5 font-mono-num text-[11px] text-slate-300">
@@ -338,77 +422,200 @@ export const FuelDispensesModule: React.FC<FuelDispensesModuleProps> = ({
                   <span>{formError}</span>
                 </div>
               )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-slate-400 block mb-1">Véhicule / Machine Cible *</label>
-                  <select
-                    value={selectedVehicleId}
-                    onChange={e => handleVehicleChange(e.target.value)}
-                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded text-slate-100 font-semibold"
-                  >
-                    {vehicles.map(v => (
-                      <option key={v.id} value={v.id}>
-                        {v.code} - {v.marque} {v.modele} ({v.type})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              {/* Saisie & Sélection Véhicule et Citerne */}
+              <div className="space-y-3">
+                <div className="p-3.5 bg-slate-950/80 border border-slate-800 rounded-xl space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-2 border-b border-slate-800">
+                    <label className="text-xs font-bold text-slate-100 flex items-center gap-1.5">
+                      <Truck className="w-4 h-4 text-amber-500" />
+                      <span>Saisie Véhicule / Engin Cible *</span>
+                    </label>
+                    <span className="text-[11px] text-amber-400 font-medium">
+                      Affichage automatique de l'immatriculation et du modèle
+                    </span>
+                  </div>
 
-                <div>
-                  <label className="text-slate-400 block mb-1">Citerne Source / Pompe *</label>
-                  <select
-                    value={citerneId}
-                    onChange={e => setCiterneId(e.target.value)}
-                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded text-slate-100 font-semibold"
-                  >
-                    {citernes.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.code} - Stock dispo: {c.stockActuel.toLocaleString()} L
-                      </option>
-                    ))}
-                  </select>
+                  {/* Champ de saisie / filtre rapide par Immatriculation ou Modèle */}
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Saisissez ou filtrez par Immatriculation (ex: 48291, 77301...) ou Modèle (Hilux, FMX, 336D...)..."
+                      value={vehicleSearch}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setVehicleSearch(val);
+                        const q = val.toLowerCase().trim();
+                        if (q) {
+                          const match = vehicles.find(v => 
+                            v.immatriculation.toLowerCase().includes(q) || 
+                            v.modele.toLowerCase().includes(q) ||
+                            v.marque.toLowerCase().includes(q) ||
+                            v.code.toLowerCase().includes(q)
+                          );
+                          if (match && match.id !== selectedVehicleId) {
+                            handleVehicleChange(match.id);
+                          }
+                        }
+                      }}
+                      className="w-full pl-9 pr-8 py-2 bg-slate-900 border border-slate-700 focus:border-amber-500 rounded-lg text-slate-100 text-xs placeholder:text-slate-500 focus:outline-none transition font-medium"
+                    />
+                    {vehicleSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setVehicleSearch('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs px-1"
+                        title="Effacer la recherche"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Sélection directe dans la liste */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <span className="text-[11px] text-slate-400 block mb-1 font-medium">
+                        Sélectionner dans la liste ({filteredVehicles.length} disponible{filteredVehicles.length > 1 ? 's' : ''})
+                      </span>
+                      <select
+                        value={selectedVehicleId}
+                        onChange={e => handleVehicleChange(e.target.value)}
+                        className="w-full p-2.5 bg-slate-900 border border-slate-700 focus:border-amber-500 rounded-lg text-slate-100 font-semibold text-xs cursor-pointer focus:outline-none transition"
+                      >
+                        {filteredVehicles.map(v => (
+                          <option key={v.id} value={v.id}>
+                            [Immat: {v.immatriculation}] — Modèle: {v.modele} ({v.marque}) • {v.code}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <span className="text-[11px] text-slate-400 block mb-1 font-medium">
+                        Citerne Source / Volucompteur *
+                      </span>
+                      <select
+                        value={citerneId}
+                        onChange={e => setCiterneId(e.target.value)}
+                        className="w-full p-2.5 bg-slate-900 border border-slate-700 focus:border-amber-500 rounded-lg text-slate-100 font-semibold text-xs cursor-pointer focus:outline-none transition"
+                      >
+                        {citernes.map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.code} - {c.nom} (Dispo: {c.stockActuel.toLocaleString()} L)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* CARTE D'AFFICHAGE OFFICIEL DU VÉHICULE IDENTIFIÉ (IMMATRICULATION & MODÈLE) */}
+                  {currentVehicle && (
+                    <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border-2 border-amber-500/50 rounded-xl p-3.5 shadow-lg relative overflow-hidden">
+                      {/* En-tête statut */}
+                      <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-slate-800">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400">
+                            Identification Véhicule au Pistolet
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-mono-num px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                          {currentVehicle.code} • {currentVehicle.type}
+                        </span>
+                      </div>
+
+                      {/* IMMATRICULATION ET MODÈLE BIEN MIS EN ÉVIDENCE */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
+                        {/* 1. PLAQUE D'IMMATRICULATION */}
+                        <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-700">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5 flex items-center gap-1">
+                            <Car className="w-3 h-3 text-amber-400" />
+                            <span>Immatriculation :</span>
+                          </span>
+                          <div className="flex items-center gap-2 bg-slate-900 px-3 py-2 rounded-lg border-2 border-slate-600 shadow-inner">
+                            <span className="px-1.5 py-0.5 bg-red-700 text-white font-black text-[10px] rounded tracking-wider flex items-center justify-center border border-red-500/50 shadow-sm">
+                              MA 🇲🇦
+                            </span>
+                            <span className="font-mono-num font-extrabold text-base sm:text-lg text-amber-300 tracking-wider">
+                              {currentVehicle.immatriculation}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* 2. MODÈLE DU VÉHICULE */}
+                        <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-700">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5 flex items-center gap-1">
+                            <Truck className="w-3 h-3 text-amber-400" />
+                            <span>Modèle :</span>
+                          </span>
+                          <div className="px-3 py-2 rounded-lg bg-slate-900 border border-slate-700">
+                            <div className="font-bold text-sm sm:text-base text-slate-100 flex items-center gap-1.5">
+                              <span className="text-amber-400">{currentVehicle.marque}</span>
+                              <span className="text-white underline decoration-amber-500/50 underline-offset-2">{currentVehicle.modele}</span>
+                            </div>
+                            <div className="text-[10px] text-slate-400 mt-0.5">
+                              {currentVehicle.departement} • Année {currentVehicle.annee}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Détails Techniques Complémentaires */}
+                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800 text-center">
+                        <div className="bg-slate-950/70 p-1.5 rounded border border-slate-800">
+                          <span className="text-[10px] text-slate-400 block">Dernier Index</span>
+                          <span className="font-mono-num font-bold text-slate-200 text-xs">
+                            {compteurPrecedent.toLocaleString('fr-FR')} {currentVehicle.uniteMesure}
+                          </span>
+                        </div>
+                        <div className="bg-slate-950/70 p-1.5 rounded border border-slate-800">
+                          <span className="text-[10px] text-slate-400 block">Réservoir</span>
+                          <span className="font-mono-num font-bold text-slate-200 text-xs">
+                            {currentVehicle.capaciteReservoir} L
+                          </span>
+                        </div>
+                        <div className="bg-slate-950/70 p-1.5 rounded border border-slate-800">
+                          <span className="text-[10px] text-slate-400 block">Conso Constructeur</span>
+                          <span className="font-mono-num font-bold text-amber-400 text-xs">
+                            {currentVehicle.consommationMoyenneTheorique} {currentVehicle.uniteMesure === 'km' ? 'L/100km' : 'L/h'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-
-              {/* Vehicle Context Info Card */}
-              {currentVehicle && (
-                <div className="p-3 bg-slate-950/90 rounded-xl border border-slate-800 grid grid-cols-3 gap-2">
-                  <div>
-                    <span className="text-[11px] text-slate-500 block">Dernier Index Enregistré</span>
-                    <span className="font-mono-num font-bold text-slate-200 text-sm">
-                      {compteurPrecedent.toLocaleString('fr-FR')} {currentVehicle.uniteMesure}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-slate-500 block">Réservoir Véhicule</span>
-                    <span className="font-mono-num font-bold text-slate-200 text-sm">
-                      {currentVehicle.capaciteReservoir} Litres
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-slate-500 block">Norme Constructeur</span>
-                    <span className="font-mono-num font-bold text-amber-400 text-sm">
-                      {currentVehicle.consommationMoyenneTheorique} {currentVehicle.uniteMesure === 'km' ? 'L/100km' : 'L/h'}
-                    </span>
-                  </div>
-                </div>
-              )}
 
               {/* Counters & Volume Delivered */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-950/60 border border-slate-800 rounded-xl">
                 <div>
-                  <label className="text-slate-400 block mb-1 font-semibold text-amber-400">
-                    Volume Carburant Pompé (Litres) *
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    max={currentVehicle?.capaciteReservoir ? currentVehicle.capaciteReservoir * 1.2 : 2000}
-                    value={volumeLivre}
-                    onChange={e => setVolumeLivre(Number(e.target.value))}
-                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded text-amber-400 font-bold font-mono-num text-base"
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-slate-400 font-semibold text-amber-400">
+                      Volume Carburant Pompé (Litres) *
+                    </label>
+                    <span className="text-[10px] text-amber-400 font-mono-num bg-slate-900 border border-slate-700 px-1.5 py-0.5 rounded">
+                      Virgule tolérée • 2 décimales
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      required
+                      placeholder="Ex: 150,25 ou 120"
+                      value={volumeLivreInput}
+                      onChange={e => handleVolumeChange(e.target.value)}
+                      onBlur={handleVolumeBlur}
+                      className="w-full p-2.5 pr-10 bg-slate-900 border border-slate-700 focus:border-amber-500 rounded text-amber-400 font-bold font-mono-num text-base focus:outline-none transition"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs pointer-events-none">
+                      L
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 mt-1 block font-mono-num">
+                    Format : 0,00 L (virgule ou point acceptés, ex: 150,25)
+                  </span>
                 </div>
 
                 <div>

@@ -7,7 +7,7 @@ export const INITIAL_CITERNES: Citerne[] = [
   {
     id: 'cit-1',
     code: 'CIT-01',
-    nom: 'Citerne Principale A (Engins Lourds)',
+    nom: 'Citerne Principale A (Engins Lourds & Mines)',
     capaciteTotale: 60000,
     stockActuel: 41850,
     seuilAlerteBas: 12000,
@@ -15,7 +15,7 @@ export const INITIAL_CITERNES: Citerne[] = [
     temperatureC: 18.4,
     densiteKgL: 0.842,
     typeGasoil: 'Gasoil Standard 10ppm',
-    emplacement: 'Zone Dépôt Nord - Quai 1',
+    emplacement: 'Zone Pétrolière Mohammedia - Quai 1',
     dernierControle: '2026-09-28',
     statut: 'Opérationnelle'
   },
@@ -30,7 +30,7 @@ export const INITIAL_CITERNES: Citerne[] = [
     temperatureC: 19.1,
     densiteKgL: 0.839,
     typeGasoil: 'Gasoil Non Routier (GNR)',
-    emplacement: 'Atelier Central - Quai 2',
+    emplacement: 'Atelier Central Jorf Lasfar - Quai 2',
     dernierControle: '2026-10-02',
     statut: 'Opérationnelle'
   },
@@ -45,7 +45,7 @@ export const INITIAL_CITERNES: Citerne[] = [
     temperatureC: 17.8,
     densiteKgL: 0.844,
     typeGasoil: 'Gasoil Heavy Duty',
-    emplacement: 'Centrale Électrique Bâtiment 4',
+    emplacement: 'Centrale Électrique Casablanca - Bâtiment 4',
     dernierControle: '2026-10-04',
     statut: 'Opérationnelle'
   }
@@ -55,7 +55,7 @@ export const INITIAL_VEHICLES: Vehicle[] = [
   {
     id: 'veh-1',
     code: 'ENG-101',
-    immatriculation: '48291-A-12',
+    immatriculation: '48291-A-6',
     marque: 'Caterpillar',
     modele: '336D L',
     type: 'Pelleteuse',
@@ -67,12 +67,12 @@ export const INITIAL_VEHICLES: Vehicle[] = [
     consommationMoyenneTheorique: 24.5, // L/h
     derniereConsoReelle: 25.1,
     dateMiseEnService: '2021-03-15',
-    departement: 'Carrière & Extraction'
+    departement: 'Carrière & Extraction (Bouskoura)'
   },
   {
     id: 'veh-2',
     code: 'ENG-102',
-    immatriculation: '51902-B-16',
+    immatriculation: '51902-B-26',
     marque: 'Komatsu',
     modele: 'WA470-8',
     type: 'Chargeuse',
@@ -89,7 +89,7 @@ export const INITIAL_VEHICLES: Vehicle[] = [
   {
     id: 'veh-3',
     code: 'CAM-201',
-    immatriculation: '77301-C-08',
+    immatriculation: '77301-D-1',
     marque: 'Volvo',
     modele: 'FMX 460 8x4',
     type: 'Camion Benne',
@@ -101,12 +101,12 @@ export const INITIAL_VEHICLES: Vehicle[] = [
     consommationMoyenneTheorique: 48.0, // L/100km
     derniereConsoReelle: 57.2, // surconsommation!
     dateMiseEnService: '2023-01-20',
-    departement: 'Transport Usine'
+    departement: 'Transport Dépôt Jorf Lasfar'
   },
   {
     id: 'veh-4',
     code: 'CAM-202',
-    immatriculation: '77302-C-08',
+    immatriculation: '77302-D-1',
     marque: 'Mercedes-Benz',
     modele: 'Arocs 4145',
     type: 'Camion Benne',
@@ -118,12 +118,12 @@ export const INITIAL_VEHICLES: Vehicle[] = [
     consommationMoyenneTheorique: 46.5,
     derniereConsoReelle: 47.1,
     dateMiseEnService: '2022-09-01',
-    departement: 'Transport Usine'
+    departement: 'Transport Port Mohammedia'
   },
   {
     id: 'veh-5',
     code: 'ENG-105',
-    immatriculation: '89123-D-22',
+    immatriculation: '89123-A-40',
     marque: 'Bell',
     modele: 'B40E',
     type: 'Dumper',
@@ -135,7 +135,7 @@ export const INITIAL_VEHICLES: Vehicle[] = [
     consommationMoyenneTheorique: 28.0,
     derniereConsoReelle: 29.4,
     dateMiseEnService: '2020-11-12',
-    departement: 'Carrière & Extraction'
+    departement: 'Terrassement Tanger Med'
   },
   {
     id: 'veh-6',
@@ -152,7 +152,7 @@ export const INITIAL_VEHICLES: Vehicle[] = [
     consommationMoyenneTheorique: 4.8,
     derniereConsoReelle: 4.6,
     dateMiseEnService: '2021-05-18',
-    departement: 'Stockage & Expédition'
+    departement: 'Stockage & Expédition Casablanca'
   },
   {
     id: 'veh-7',
@@ -169,12 +169,12 @@ export const INITIAL_VEHICLES: Vehicle[] = [
     consommationMoyenneTheorique: 75.0, // L/h à 75% charge
     derniereConsoReelle: 76.2,
     dateMiseEnService: '2019-08-10',
-    departement: 'Énergie & Utilités'
+    departement: 'Énergie & Utilités Dépôt'
   },
   {
     id: 'veh-8',
     code: 'UTL-501',
-    immatriculation: '34891-E-14',
+    immatriculation: '34891-E-33',
     marque: 'Toyota',
     modele: 'Hilux Double Cab 4x4',
     type: 'Véhicule Léger',
@@ -186,7 +186,7 @@ export const INITIAL_VEHICLES: Vehicle[] = [
     consommationMoyenneTheorique: 8.9,
     derniereConsoReelle: 9.1,
     dateMiseEnService: '2023-04-05',
-    departement: 'Supervision & Sécurité'
+    departement: 'Supervision & Sécurité Agadir'
   }
 ];
 
@@ -195,48 +195,48 @@ export const INITIAL_STOCK_ENTRIES: StockEntry[] = [
     id: 'ent-1',
     numeroBon: 'BL-2026-0814',
     dateLivraison: '2026-10-05T08:30:00',
-    fournisseur: 'TotalEnergies Commercial Fuels',
-    chauffeurLivreur: 'Karim Mansouri',
-    immatriculationCiterneLivreur: 'TN-9821-B',
+    fournisseur: 'Afriquia SMDC (Groupe Akwa)',
+    chauffeurLivreur: 'Nabil Cherkaoui',
+    immatriculationCiterneLivreur: 'MA-89410-A-6',
     citerneId: 'cit-1',
     quantiteLivree: 28000,
     densiteMesuree: 0.842,
     temperatureMesuree: 18.2,
-    receptionnaireUsine: 'Ahmed Benali (Chef Dépôt)',
+    receptionnaireUsine: 'Ahmed Benali (Chef Dépôt Mohammedia)',
     signatureBase64: SAMPLE_SIGNATURE,
-    notes: 'Livraison conforme, test eau de cuve négatif, scellés vérifiés.',
+    notes: 'Livraison conforme, test eau de cuve négatif, scellés terminal Mohammedia vérifiés.',
     statut: 'Validé'
   },
   {
     id: 'ent-2',
     numeroBon: 'BL-2026-0792',
     dateLivraison: '2026-10-02T14:15:00',
-    fournisseur: 'Petromin Distribution',
-    chauffeurLivreur: 'Tahar Dridi',
-    immatriculationCiterneLivreur: 'TN-4410-X',
+    fournisseur: 'TotalEnergies Marketing Maroc',
+    chauffeurLivreur: 'Hassan Daoudi',
+    immatriculationCiterneLivreur: 'MA-58401-B-1',
     citerneId: 'cit-2',
     quantiteLivree: 15000,
     densiteMesuree: 0.839,
     temperatureMesuree: 19.0,
     receptionnaireUsine: 'Samir Chaabane (Agent Pompiste)',
     signatureBase64: SAMPLE_SIGNATURE,
-    notes: 'Dépotage par gravité + pompe auxiliaire.',
+    notes: 'Dépotage par gravité + pompe volucompteur étalonné.',
     statut: 'Validé'
   },
   {
     id: 'ent-3',
     numeroBon: 'BL-2026-0740',
     dateLivraison: '2026-09-27T10:00:00',
-    fournisseur: 'Shell Commercial Fuels',
-    chauffeurLivreur: 'Mohamed Salah',
-    immatriculationCiterneLivreur: 'TN-6192-A',
+    fournisseur: 'Vivo Energy Maroc (Shell)',
+    chauffeurLivreur: 'Reda Benchekroun',
+    immatriculationCiterneLivreur: 'MA-44102-D-40',
     citerneId: 'cit-3',
     quantiteLivree: 8000,
     densiteMesuree: 0.843,
     temperatureMesuree: 17.5,
-    receptionnaireUsine: 'Ahmed Benali (Chef Dépôt)',
+    receptionnaireUsine: 'Ahmed Benali (Chef Dépôt Mohammedia)',
     signatureBase64: SAMPLE_SIGNATURE,
-    notes: 'Complément cuve centrale secours.',
+    notes: 'Complément cuve centrale secours Casablanca.',
     statut: 'Validé'
   }
 ];
@@ -249,7 +249,7 @@ export const INITIAL_DISPENSES: FuelDispense[] = [
     citerneId: 'cit-1',
     vehiculeId: 'veh-3', // CAM-201
     pompiste: 'Samir Chaabane',
-    chauffeur: 'Mourad Kharrat',
+    chauffeur: 'Tariq Berrada',
     volumeLivre: 380,
     compteurActuel: 88400,
     compteurPrecedent: 87735,
@@ -258,7 +258,7 @@ export const INITIAL_DISPENSES: FuelDispense[] = [
     surconsommationAlerte: true,
     signatureChauffeur: SAMPLE_SIGNATURE,
     signaturePompiste: SAMPLE_SIGNATURE,
-    remarques: 'Déviation constatée (+19% vs théorique). Vérifier injecteurs ou sur-régime.'
+    remarques: 'Déviation constatée (+19% vs théorique). Vérifier injecteurs ou conduite sur piste Bouskoura.'
   },
   {
     id: 'dsp-2',
@@ -267,7 +267,7 @@ export const INITIAL_DISPENSES: FuelDispense[] = [
     citerneId: 'cit-1',
     vehiculeId: 'veh-1', // ENG-101 Pelleteuse
     pompiste: 'Samir Chaabane',
-    chauffeur: 'Nabil Zlitni',
+    chauffeur: 'Nabil Cherkaoui',
     volumeLivre: 450,
     compteurActuel: 6420,
     compteurPrecedent: 6402,
@@ -276,7 +276,7 @@ export const INITIAL_DISPENSES: FuelDispense[] = [
     surconsommationAlerte: false,
     signatureChauffeur: SAMPLE_SIGNATURE,
     signaturePompiste: SAMPLE_SIGNATURE,
-    remarques: 'Plein fin de poste de terrassement secteur nord.'
+    remarques: 'Plein fin de poste extraction zone carrière.'
   },
   {
     id: 'dsp-3',
@@ -284,8 +284,8 @@ export const INITIAL_DISPENSES: FuelDispense[] = [
     dateHeure: '2026-10-05T16:10:00',
     citerneId: 'cit-2',
     vehiculeId: 'veh-6', // MAN-301 Chariot
-    pompiste: 'Brahim Ouni',
-    chauffeur: 'Béchir Ayari',
+    pompiste: 'Youssef Amrani',
+    chauffeur: 'Karim Mansouri',
     volumeLivre: 65,
     compteurActuel: 3820,
     compteurPrecedent: 3806,
@@ -294,7 +294,7 @@ export const INITIAL_DISPENSES: FuelDispense[] = [
     surconsommationAlerte: false,
     signatureChauffeur: SAMPLE_SIGNATURE,
     signaturePompiste: SAMPLE_SIGNATURE,
-    remarques: 'Consommation normale.'
+    remarques: 'Consommation normale atelier logistique Jorf Lasfar.'
   },
   {
     id: 'dsp-4',
@@ -303,7 +303,7 @@ export const INITIAL_DISPENSES: FuelDispense[] = [
     citerneId: 'cit-1',
     vehiculeId: 'veh-2', // ENG-102 Chargeuse
     pompiste: 'Samir Chaabane',
-    chauffeur: 'Hichem Trad',
+    chauffeur: 'Yassine Tahiri',
     volumeLivre: 340,
     compteurActuel: 4180,
     compteurPrecedent: 4162,
@@ -312,7 +312,7 @@ export const INITIAL_DISPENSES: FuelDispense[] = [
     surconsommationAlerte: false,
     signatureChauffeur: SAMPLE_SIGNATURE,
     signaturePompiste: SAMPLE_SIGNATURE,
-    remarques: 'Chargement trémie concasseur.'
+    remarques: 'Chargement trémie concasseur carrière.'
   }
 ];
 
@@ -411,11 +411,11 @@ export const INITIAL_USERS: User[] = [
     nom: 'Benali',
     prenom: 'Ahmed',
     role: 'Chef de Dépôt',
-    email: 'a.benali@usine-hydro.com',
-    telephone: '+216 71 884 102',
+    email: 'a.benali@hydro-maroc.com',
+    telephone: '+212 5 22 88 41 02',
     statut: 'Actif',
     badgeCode: 'RFID-98421',
-    departement: 'Logistique & Carburants',
+    departement: 'Logistique & Carburants (Mohammedia)',
     dateCreation: '2024-01-15'
   },
   {
@@ -426,26 +426,26 @@ export const INITIAL_USERS: User[] = [
     nom: 'Chaabane',
     prenom: 'Samir',
     role: 'Pompiste',
-    email: 's.chaabane@usine-hydro.com',
-    telephone: '+216 98 441 200',
+    email: 's.chaabane@hydro-maroc.com',
+    telephone: '+212 6 61 44 12 00',
     statut: 'Actif',
     badgeCode: 'RFID-11045',
-    departement: 'Station Quai 1',
+    departement: 'Station Quai 1 (Mohammedia)',
     dateCreation: '2024-03-20'
   },
   {
     id: 'usr-3',
     matricule: 'PMP-102',
-    login: 'ouni',
+    login: 'amrani',
     motDePasse: 'pompiste123',
-    nom: 'Ouni',
-    prenom: 'Brahim',
+    nom: 'Amrani',
+    prenom: 'Youssef',
     role: 'Pompiste',
-    email: 'b.ouni@usine-hydro.com',
-    telephone: '+216 97 332 119',
+    email: 'y.amrani@hydro-maroc.com',
+    telephone: '+212 6 62 33 21 19',
     statut: 'Actif',
     badgeCode: 'RFID-22481',
-    departement: 'Station Quai 2',
+    departement: 'Station Quai 2 (Jorf Lasfar)',
     dateCreation: '2024-06-10'
   },
   {
@@ -453,44 +453,44 @@ export const INITIAL_USERS: User[] = [
     matricule: 'SYS-001',
     login: 'admin',
     motDePasse: 'admin123',
-    nom: 'Trabelsi',
-    prenom: 'Mehdi',
+    nom: 'El Idrissi',
+    prenom: 'Rachid',
     role: 'Administrateur',
-    email: 'admin.parc@usine-hydro.com',
-    telephone: '+216 71 500 900',
+    email: 'admin.parc@hydro-maroc.com',
+    telephone: '+212 5 22 50 09 00',
     statut: 'Actif',
     badgeCode: 'RFID-00001',
-    departement: 'Direction Technique & IT',
+    departement: 'Direction Technique & IT Casablanca',
     dateCreation: '2023-11-01'
   },
   {
     id: 'usr-5',
     matricule: 'CHF-201',
-    login: 'kharrat',
+    login: 'berrada',
     motDePasse: 'chauffeur123',
-    nom: 'Kharrat',
-    prenom: 'Mourad',
+    nom: 'Berrada',
+    prenom: 'Tariq',
     role: 'Chauffeur / Opérateur',
-    email: 'm.kharrat@usine-hydro.com',
-    telephone: '+216 22 991 304',
+    email: 't.berrada@hydro-maroc.com',
+    telephone: '+212 6 70 99 13 04',
     statut: 'Actif',
     badgeCode: 'RFID-77120',
-    departement: 'Transport Benne',
+    departement: 'Transport Flotte Lourde',
     dateCreation: '2024-02-12'
   },
   {
     id: 'usr-6',
     matricule: 'MNT-301',
-    login: 'gharbi',
+    login: 'mansouri',
     motDePasse: 'maint123',
-    nom: 'Gharbi',
-    prenom: 'Youssef',
+    nom: 'Mansouri',
+    prenom: 'Fatima Zahra',
     role: 'Responsable Maintenance',
-    email: 'y.gharbi@usine-hydro.com',
-    telephone: '+216 55 410 782',
+    email: 'fz.mansouri@hydro-maroc.com',
+    telephone: '+212 6 63 41 07 82',
     statut: 'Actif',
     badgeCode: 'RFID-33901',
-    departement: 'Atelier Central & Pompage',
+    departement: 'Atelier Central & Métrologie',
     dateCreation: '2024-04-05'
   }
 ];
@@ -499,54 +499,67 @@ export const INITIAL_FOURNISSEURS: Fournisseur[] = [
   {
     id: 'frs-1',
     code: 'FRS-01',
-    nom: 'TotalEnergies Commercial Fuels',
-    contactNom: 'M. Karim Khelifi (Responsable B2B)',
-    telephone: '+216 71 110 220',
-    email: 'contact.b2b@totalenergies.tn',
-    adresse: 'Zone Industrielle Rades, Dépôt Pétrolier Sud',
+    nom: 'Afriquia SMDC (Groupe Akwa)',
+    contactNom: 'M. Karim Tazi (Direction Grands Comptes B2B)',
+    telephone: '+212 5 22 35 10 20',
+    email: 'b2b.industrie@afriquia.ma',
+    adresse: 'Tour Akwa, Boulevard Moulay Ismaïl, Aïn Sebaâ, Casablanca',
     typeGasoilFourni: 'Gasoil Standard 10ppm',
-    numContrat: 'CTR-2024-TOT-09',
+    numContrat: 'CTR-2024-AFR-01',
     statut: 'Actif',
-    notes: 'Fournisseur principal cuve A & B. Livraison sous 24h ouvrées.'
+    notes: 'Premier distributeur national de carburants au Maroc. Livraison vrac sous 24h ouvrées.'
   },
   {
     id: 'frs-2',
     code: 'FRS-02',
-    nom: 'Shell Commercial Fuels (Vivo Energy)',
-    contactNom: 'Mme Ines Ben Salem',
-    telephone: '+216 71 890 400',
-    email: 'commercial@vivoenergy.com',
-    adresse: 'Avenue de la Bourse, Les Berges du Lac',
-    typeGasoilFourni: 'Gasoil Non Routier (GNR)',
-    numContrat: 'CTR-2025-SHL-14',
+    nom: 'TotalEnergies Marketing Maroc',
+    contactNom: 'M. Omar Bennani (Directeur Ventes Industrielles)',
+    telephone: '+212 5 22 43 70 00',
+    email: 'commercial.maroc@totalenergies.ma',
+    adresse: '146 Boulevard Mohamed Zerktouni, Casablanca',
+    typeGasoilFourni: 'Gasoil Standard 10ppm',
+    numContrat: 'CTR-2025-TOT-09',
     statut: 'Actif',
-    notes: 'Fourniture GNR spécifique carrières et engins d’extraction.'
+    notes: 'Fourniture cuve A & C. Contrôle qualité certifié laboratoire Mohammedia.'
   },
   {
     id: 'frs-3',
     code: 'FRS-03',
-    nom: 'Petromin Distribution Industrielle',
-    contactNom: 'M. Tarek Mabrouk',
-    telephone: '+216 72 445 100',
-    email: 'tarek.m@petromin-fuels.com',
-    adresse: 'Zone Portuaire Bizerte, Dépôt Ouest',
-    typeGasoilFourni: 'Gasoil Heavy Duty',
-    numContrat: 'CTR-2023-PET-03',
+    nom: 'Vivo Energy Maroc (Société Distributrice Shell)',
+    contactNom: 'Mme Meryem El Alami (Responsable Mines & Chantiers)',
+    telephone: '+212 5 22 46 20 00',
+    email: 'industrie.maroc@vivoenergy.com',
+    adresse: 'Zone Industrielle Aïn Sebaâ, Casablanca',
+    typeGasoilFourni: 'Gasoil Non Routier (GNR)',
+    numContrat: 'CTR-2025-SHL-14',
     statut: 'Actif',
-    notes: 'Alimentation des cuves groupes électrogènes de secours.'
+    notes: 'Gasoil GNR spécifique engins miniers et concassage carrière.'
   },
   {
     id: 'frs-4',
     code: 'FRS-04',
-    nom: 'Ola Energy Industrial',
-    contactNom: 'M. Nader Zouari',
-    telephone: '+216 71 780 120',
-    email: 'n.zouari@olaenergy.com',
-    adresse: 'Zone Industrielle Charguia II',
-    typeGasoilFourni: 'Gasoil Standard 10ppm',
-    numContrat: 'CTR-2024-OLA-02',
+    nom: 'Winxo Hydrocarbures Maroc',
+    contactNom: 'M. Mehdi Chraibi',
+    telephone: '+212 5 22 67 80 00',
+    email: 'b2b@winxo.ma',
+    adresse: 'Boulevard Ahl Loghlam, Sidi Bernoussi, Casablanca',
+    typeGasoilFourni: 'Gasoil Heavy Duty',
+    numContrat: 'CTR-2024-WIN-04',
     statut: 'Inactif',
-    notes: 'Fournisseur secondaire de réserve en cas de rupture de stock.'
+    notes: 'Fournisseur de réserve en cas de pic de demande.'
+  },
+  {
+    id: 'frs-5',
+    code: 'FRS-05',
+    nom: 'Petrom (Pétroles du Maghreb)',
+    contactNom: 'M. Adil Fassi',
+    telephone: '+212 5 22 24 50 10',
+    email: 'contact@petrom.ma',
+    adresse: 'Rue de Saint-Omer, Roches Noires, Casablanca',
+    typeGasoilFourni: 'Gasoil Standard 10ppm',
+    numContrat: 'CTR-2024-PET-08',
+    statut: 'Actif',
+    notes: 'Dépôt régional et fourniture groupes électrogènes.'
   }
 ];
 
