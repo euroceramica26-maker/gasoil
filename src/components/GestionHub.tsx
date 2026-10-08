@@ -36,6 +36,7 @@ export type GestionSubTab =
 
 interface GestionHubProps {
   initialSubTab?: GestionSubTab;
+  currentUser?: User | null;
   // Users
   users: User[];
   onAddUser: (user: Omit<User, 'id'>) => void;
@@ -85,6 +86,7 @@ interface GestionHubProps {
 
 export const GestionHub: React.FC<GestionHubProps> = ({
   initialSubTab = 'utilisateurs',
+  currentUser,
   users,
   onAddUser,
   onUpdateUser,
@@ -226,6 +228,7 @@ export const GestionHub: React.FC<GestionHubProps> = ({
         {activeSubTab === 'utilisateurs' && (
           <UsersModule
             users={users}
+            currentUser={currentUser}
             onAddUser={onAddUser}
             onUpdateUser={onUpdateUser}
             onDeleteUser={onDeleteUser}

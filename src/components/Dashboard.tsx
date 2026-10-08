@@ -25,7 +25,7 @@ interface DashboardProps {
   alerts: ConsumptionAlert[];
   onUpdateCiterneLevel: (citerneId: string, newLevel: number) => void;
   onNavigateTab: (
-    tab: 'dashboard' | 'entries' | 'dispenses' | 'gestion' | 'architecture',
+    tab: 'dashboard' | 'entries' | 'dispenses' | 'utilisateurs' | 'gestion' | 'architecture',
     subTab?: 'utilisateurs' | 'citernes' | 'types_engins' | 'fournisseurs' | 'parc_vehicules'
   ) => void;
 }
@@ -281,11 +281,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <span>Sorties / Pleins</span>
             </button>
             <button
-              onClick={() => onNavigateTab('gestion', 'utilisateurs')}
+              onClick={() => onNavigateTab('utilisateurs')}
               className="p-2 rounded bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800 flex items-center justify-center gap-1.5 transition cursor-pointer col-span-2 sm:col-span-1"
             >
               <Users className="w-3.5 h-3.5 text-purple-400" />
-              <span>Utilisateurs</span>
+              <span>Utilisateurs & Opérateurs</span>
             </button>
           </div>
         </div>

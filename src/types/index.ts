@@ -103,6 +103,8 @@ export type UserStatus = 'Actif' | 'Inactif' | 'Suspendu';
 export interface User {
   id: string;
   matricule: string; // Ex: USR-001
+  login?: string; // Identifiant de connexion
+  motDePasse?: string; // Mot de passe sécurisé
   nom: string;
   prenom: string;
   role: UserRole;
@@ -112,6 +114,7 @@ export interface User {
   badgeCode: string; // Code RFID ou PIN
   departement: string;
   dateCreation: string;
+  dernierAcces?: string;
 }
 
 export interface Repair {

@@ -406,6 +406,8 @@ export const INITIAL_USERS: User[] = [
   {
     id: 'usr-1',
     matricule: 'ADM-001',
+    login: 'benali',
+    motDePasse: 'depot2026',
     nom: 'Benali',
     prenom: 'Ahmed',
     role: 'Chef de Dépôt',
@@ -419,6 +421,8 @@ export const INITIAL_USERS: User[] = [
   {
     id: 'usr-2',
     matricule: 'PMP-101',
+    login: 'chaabane',
+    motDePasse: 'pompiste123',
     nom: 'Chaabane',
     prenom: 'Samir',
     role: 'Pompiste',
@@ -432,6 +436,8 @@ export const INITIAL_USERS: User[] = [
   {
     id: 'usr-3',
     matricule: 'PMP-102',
+    login: 'ouni',
+    motDePasse: 'pompiste123',
     nom: 'Ouni',
     prenom: 'Brahim',
     role: 'Pompiste',
@@ -445,6 +451,8 @@ export const INITIAL_USERS: User[] = [
   {
     id: 'usr-4',
     matricule: 'SYS-001',
+    login: 'admin',
+    motDePasse: 'admin123',
     nom: 'Trabelsi',
     prenom: 'Mehdi',
     role: 'Administrateur',
@@ -458,6 +466,8 @@ export const INITIAL_USERS: User[] = [
   {
     id: 'usr-5',
     matricule: 'CHF-201',
+    login: 'kharrat',
+    motDePasse: 'chauffeur123',
     nom: 'Kharrat',
     prenom: 'Mourad',
     role: 'Chauffeur / Opérateur',
@@ -471,6 +481,8 @@ export const INITIAL_USERS: User[] = [
   {
     id: 'usr-6',
     matricule: 'MNT-301',
+    login: 'gharbi',
+    motDePasse: 'maint123',
     nom: 'Gharbi',
     prenom: 'Youssef',
     role: 'Responsable Maintenance',

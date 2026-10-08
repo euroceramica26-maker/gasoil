@@ -15,11 +15,16 @@ import {
   X, 
   Download, 
   BadgeCheck, 
-  CreditCard 
+  CreditCard,
+  Lock,
+  Eye,
+  EyeOff,
+  UserCheck
 } from 'lucide-react';
 
 interface UsersModuleProps {
   users: User[];
+  currentUser?: User | null;
   onAddUser: (user: Omit<User, 'id'>) => void;
   onUpdateUser: (user: User) => void;
   onDeleteUser: (id: string) => void;
@@ -35,6 +40,7 @@ const ROLES: UserRole[] = [
 
 export const UsersModule: React.FC<UsersModuleProps> = ({
   users,
+  currentUser,
   onAddUser,
   onUpdateUser,
   onDeleteUser
@@ -46,10 +52,13 @@ export const UsersModule: React.FC<UsersModuleProps> = ({
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
     matricule: '',
+    login: '',
+    motDePasse: '',
     nom: '',
     prenom: '',
     role: 'Pompiste' as UserRole,
@@ -63,8 +72,11 @@ export const UsersModule: React.FC<UsersModuleProps> = ({
 
   const handleOpenCreate = () => {
     setEditingUser(null);
+    const randNum = Math.floor(100 + Math.random() * 900);
     setFormData({
-      matricule: `USR-${Math.floor(100 + Math.random() * 900)}`,
+      matricule: `USR-${randNum}`,
+      login: `user${randNum}`,
+      motDePasse: '123456',
       nom: '',
       prenom: '',
       role: 'Pompiste',
@@ -75,6 +87,7 @@ export const UsersModule: React.FC<UsersModuleProps> = ({
       departement: 'Station Distribution',
       dateCreation: new Date().toISOString().split('T')[0]
     });
+    setShowPassword(false);
     setIsModalOpen(true);
   };
 
@@ -82,6 +95,8 @@ export const UsersModule: React.FC<UsersModuleProps> = ({
     setEditingUser(user);
     setFormData({
       matricule: user.matricule,
+      login: user.login || user.matricule.toLowerCase(),
+      motDePasse: user.motDePasse || 'admin123',
       nom: user.nom,
       prenom: user.prenom,
       role: user.role,
@@ -92,6 +107,7 @@ export const UsersModule: React.FC<UsersModuleProps> = ({
       departement: user.departement,
       dateCreation: user.dateCreation
     });
+    setShowPassword(false);
     setIsModalOpen(true);
   };
 
@@ -103,13 +119,19 @@ export const UsersModule: React.FC<UsersModuleProps> = ({
       return;
     }
 
+    const cleanedData = {
+      ...formData,
+      login: formData.login.trim() || formData.matricule.toLowerCase(),
+      motDePasse: formData.motDePasse.trim() || '123456'
+    };
+
     if (editingUser) {
       onUpdateUser({
         ...editingUser,
-        ...formData
+        ...cleanedData
       });
     } else {
-      onAddUser(formData);
+      onAddUser(cleanedData);
     }
     setIsModalOpen(false);
   };
@@ -282,12 +304,27 @@ export const UsersModule: React.FC<UsersModuleProps> = ({
                 filteredUsers.map(user => (
                   <tr key={user.id} className="hover:bg-slate-800/40 transition">
                     <td className="p-3.5">
-                      <span className="font-mono-num font-bold text-amber-400 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
-                        {user.matricule}
-                      </span>
-                      <div className="flex items-center gap-1 text-[11px] text-slate-400 font-mono-num mt-1">
-                        <CreditCard className="w-3 h-3 text-slate-500" />
-                        <span>{user.badgeCode}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono-num font-bold text-amber-400 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
+                          {user.matricule}
+                        </span>
+                        {currentUser?.id === user.id && (
+                          <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.2 rounded font-bold flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            Vous (Actif)
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono mt-1">
+                        <div className="flex items-center gap-1">
+                          <CreditCard className="w-3 h-3 text-slate-500" />
+                          <span>{user.badgeCode}</span>
+                        </div>
+                        <span>•</span>
+                        <div className="flex items-center gap-1 text-slate-300">
+                          <Lock className="w-2.5 h-2.5 text-amber-500" />
+                          <span>login: <strong className="text-amber-400">{user.login || user.matricule.toLowerCase()}</strong></span>
+                        </div>
                       </div>
                     </td>
 
@@ -418,6 +455,49 @@ export const UsersModule: React.FC<UsersModuleProps> = ({
                     placeholder="RFID-12345"
                     className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded text-slate-100 font-mono-num"
                   />
+                </div>
+              </div>
+
+              {/* Login & Mot de Passe de Connexion */}
+              <div className="grid grid-cols-2 gap-3 bg-slate-950/70 p-3 rounded-xl border border-slate-800">
+                <div>
+                  <label className="text-slate-300 block mb-1 font-semibold flex items-center gap-1.5">
+                    <UserCheck className="w-3.5 h-3.5 text-amber-500" />
+                    Identifiant / Login *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.login}
+                    onChange={e => setFormData({...formData, login: e.target.value})}
+                    placeholder="ex: admin, benali"
+                    className="w-full p-2 bg-slate-900 border border-slate-700 rounded text-slate-100 font-mono text-xs focus:border-amber-500"
+                  />
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">Saisi à la connexion</span>
+                </div>
+                <div>
+                  <label className="text-slate-300 block mb-1 font-semibold flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-amber-500" />
+                      Mot de Passe *
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="text-slate-400 hover:text-slate-200"
+                    >
+                      {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </label>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={formData.motDePasse}
+                    onChange={e => setFormData({...formData, motDePasse: e.target.value})}
+                    placeholder="••••••••"
+                    className="w-full p-2 bg-slate-900 border border-slate-700 rounded text-slate-100 font-mono text-xs focus:border-amber-500"
+                  />
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">Indispensable au démarrage</span>
                 </div>
               </div>
 

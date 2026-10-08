@@ -23,10 +23,12 @@ import {
 } from './mockData';
 import { Dashboard } from './components/Dashboard';
 import { GestionHub, GestionSubTab } from './components/GestionHub';
+import { UsersModule } from './components/UsersModule';
 import { StockEntriesModule } from './components/StockEntriesModule';
 import { FuelDispensesModule } from './components/FuelDispensesModule';
 import { ArchitectureModal } from './components/ArchitectureModal';
 import { ConfirmModal } from './components/ConfirmModal';
+import { LoginScreen } from './components/LoginScreen';
 import { 
   Gauge, 
   Layers, 
@@ -46,12 +48,15 @@ import {
   Palette,
   HardDrive,
   Save,
-  CheckCircle2
+  CheckCircle2,
+  LogOut,
+  UserCheck,
+  Shield
 } from 'lucide-react';
 
 export default function App() {
-  // Navigation tabs
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'entries' | 'dispenses' | 'gestion' | 'architecture'>('dashboard');
+  // Navigation tabs (Utilisateurs activé en premier niveau)
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'entries' | 'dispenses' | 'utilisateurs' | 'gestion' | 'architecture'>('dashboard');
   const [gestionSubTab, setGestionSubTab] = useState<GestionSubTab>('utilisateurs');
   const [isGestionDropdownOpen, setIsGestionDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -59,6 +64,25 @@ export default function App() {
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [saveBanner, setSaveBanner] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // --- AUTHENTIFICATION SESSION (LOGIN AU DÉMARRAGE) ---
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('hg_auth_user') || sessionStorage.getItem('hg_auth_user');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
+
+  const handleLogout = () => {
+    localStorage.removeItem('hg_auth_user');
+    sessionStorage.removeItem('hg_auth_user');
+    setCurrentUser(null);
+  };
 
   // --- THEME STATE (5 THÈMES ÉLÉGANTS DE PRESTIGE) ---
   const [currentTheme, setCurrentTheme] = useState<AppTheme>(() => {
@@ -123,7 +147,22 @@ export default function App() {
 
   const [users, setUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem('hg_users');
-    return saved ? JSON.parse(saved) : INITIAL_USERS;
+    if (saved) {
+      try {
+        const parsed: User[] = JSON.parse(saved);
+        return parsed.map(u => {
+          const match = INITIAL_USERS.find(iu => iu.id === u.id || iu.matricule === u.matricule);
+          return {
+            ...u,
+            login: u.login || match?.login || u.matricule.toLowerCase(),
+            motDePasse: u.motDePasse || match?.motDePasse || 'admin123'
+          };
+        });
+      } catch (e) {
+        return INITIAL_USERS;
+      }
+    }
+    return INITIAL_USERS;
   });
 
   const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>(() => {
@@ -525,11 +564,24 @@ export default function App() {
 
   // Helper to open a specific subtab in Gestion
   const handleNavigateToGestion = (subTab: GestionSubTab) => {
-    setActiveTab('gestion');
-    setGestionSubTab(subTab);
+    if (subTab === 'utilisateurs') {
+      setActiveTab('utilisateurs');
+    } else {
+      setActiveTab('gestion');
+      setGestionSubTab(subTab);
+    }
     setIsGestionDropdownOpen(false);
     setIsMobileMenuOpen(false);
   };
+
+  // --- ÉCRAN DE LOGIN OBLIGATOIRE AU DÉMARRAGE SI NON AUTHENTIFIÉ ---
+  if (!currentUser) {
+    return (
+      <div data-theme={currentTheme}>
+        <LoginScreen users={users} onLoginSuccess={setCurrentUser} />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen app-shell bg-slate-950 text-slate-100 flex flex-col">
@@ -604,6 +656,27 @@ export default function App() {
               >
                 <Fuel className="w-4 h-4" />
                 <span>Sorties / Pleins</span>
+              </button>
+
+              {/* MENU UTILISATEURS ACTIVÉ (Premier niveau pour accès direct) */}
+              <button
+                onClick={() => setActiveTab('utilisateurs')}
+                className={`px-3 py-2 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
+                  activeTab === 'utilisateurs'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                }`}
+                title="Gestion des Utilisateurs, Pompistes et Opérateurs"
+              >
+                <Users className="w-4 h-4 text-purple-400" />
+                <span>Utilisateurs & Opérateurs</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono-num font-bold ${
+                  activeTab === 'utilisateurs'
+                    ? 'bg-slate-950 text-amber-400'
+                    : 'bg-slate-800 text-slate-300 border border-slate-700'
+                }`}>
+                  {users.length}
+                </span>
               </button>
 
               {/* MENU GESTION (Unified management and local storage) */}
@@ -763,8 +836,8 @@ export default function App() {
               </button>
             </nav>
 
-            {/* Live Clock & Status Badge */}
-            <div className="flex items-center gap-3">
+            {/* Live Clock, User Session & Status Badge */}
+            <div className="flex items-center gap-2.5">
               <button
                 type="button"
                 onClick={handleForceSaveLocal}
@@ -775,15 +848,36 @@ export default function App() {
                 <span>Stockage Local</span>
               </button>
 
-              <div className="hidden lg:flex items-center gap-2 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800 text-xs font-mono-num text-slate-300">
+              <div className="hidden xl:flex items-center gap-2 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800 text-xs font-mono-num text-slate-300">
                 <Clock className="w-3.5 h-3.5 text-amber-500" />
                 <span>{currentTime}</span>
               </div>
 
-              <div className="hidden sm:flex items-center gap-1.5 bg-emerald-950/70 border border-emerald-500/30 text-emerald-400 px-2.5 py-1 rounded-full text-xs font-semibold">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                <span>Système Connecté</span>
-              </div>
+              {/* Connected User Badge & Logout */}
+              {currentUser && (
+                <div className="flex items-center gap-2 bg-slate-950 px-2.5 py-1 rounded-xl border border-slate-800 text-xs">
+                  <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-bold text-xs">
+                    {currentUser.prenom[0]}{currentUser.nom[0]}
+                  </div>
+                  <div className="hidden lg:block text-left leading-tight">
+                    <div className="font-bold text-slate-200 truncate max-w-[120px]">
+                      {currentUser.prenom} {currentUser.nom}
+                    </div>
+                    <div className="text-[10px] text-amber-400/90 font-medium">
+                      {currentUser.role}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    title="Se déconnecter (Verrouiller le poste)"
+                    className="p-1.5 rounded-lg hover:bg-red-950/80 text-slate-400 hover:text-red-400 transition cursor-pointer flex items-center gap-1"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span className="hidden xl:inline text-[10px] text-red-400 font-semibold">Quitter</span>
+                  </button>
+                </div>
+              )}
 
               {/* Mobile Menu Toggle */}
               <button
@@ -798,7 +892,29 @@ export default function App() {
 
         {/* Mobile Navigation Drawer */}
         {isMobileMenuOpen && (
-          <div className="md:hidden bg-slate-900 border-b border-slate-800 px-4 pt-2 pb-4 space-y-1 text-xs">
+          <div className="md:hidden bg-slate-900 border-b border-slate-800 px-4 pt-2 pb-4 space-y-1.5 text-xs">
+            {/* Mobile User Profile Header */}
+            {currentUser && (
+              <div className="p-2.5 mb-2 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-bold text-xs">
+                    {currentUser.prenom[0]}{currentUser.nom[0]}
+                  </div>
+                  <div>
+                    <div className="font-bold text-slate-200">{currentUser.prenom} {currentUser.nom}</div>
+                    <div className="text-[10px] text-amber-400 font-mono">{currentUser.role} ({currentUser.matricule})</div>
+                  </div>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="px-2.5 py-1 bg-red-950 hover:bg-red-900 text-red-300 border border-red-500/40 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition"
+                >
+                  <LogOut className="w-3 h-3" />
+                  <span>Déconnexion</span>
+                </button>
+              </div>
+            )}
+
             <button
               onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }}
               className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 font-semibold ${
@@ -822,6 +938,20 @@ export default function App() {
               }`}
             >
               <Fuel className="w-4 h-4" /> Sorties / Pleins Carburant
+            </button>
+
+            {/* Mobile Utilisateurs Button */}
+            <button
+              onClick={() => { setActiveTab('utilisateurs'); setIsMobileMenuOpen(false); }}
+              className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
+                activeTab === 'utilisateurs' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-200'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-purple-400" />
+                <span>Utilisateurs & Opérateurs Usine</span>
+              </div>
+              <span className="font-mono-num text-[10px] bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">({users.length})</span>
             </button>
 
             {/* Mobile Gestion Section */}
@@ -968,9 +1098,21 @@ export default function App() {
           />
         )}
 
+        {/* ACTIVATION DU MENU GESTION DES UTILISATEURS & OPÉRATEURS */}
+        {activeTab === 'utilisateurs' && (
+          <UsersModule
+            users={users}
+            currentUser={currentUser}
+            onAddUser={handleAddUser}
+            onUpdateUser={handleUpdateUser}
+            onDeleteUser={handleDeleteUser}
+          />
+        )}
+
         {activeTab === 'gestion' && (
           <GestionHub
             initialSubTab={gestionSubTab}
+            currentUser={currentUser}
             users={users}
             onAddUser={handleAddUser}
             onUpdateUser={handleUpdateUser}
