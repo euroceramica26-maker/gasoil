@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { User } from '../types';
+import { SUPER_ADMIN_USER, SUPER_ADMIN_CREDENTIALS, ensureUserPermissions } from '../lib/userPermissions';
 import { 
   ShieldCheck, 
   Lock, 
@@ -14,7 +15,9 @@ import {
   CheckCircle2,
   AlertCircle,
   HelpCircle,
-  ArrowRight
+  ArrowRight,
+  Crown,
+  ShieldAlert
 } from 'lucide-react';
 
 interface LoginScreenProps {
@@ -48,7 +51,30 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     setIsLoading(true);
 
     setTimeout(() => {
-      // Find matching user
+      // 1. VÉRIFICATION PRIORITAIRE SUPER ADMIN OUARADTECH
+      if (cleanId === SUPER_ADMIN_CREDENTIALS.login.toLowerCase()) {
+        if (cleanPwd !== SUPER_ADMIN_CREDENTIALS.motDePasse) {
+          setIsLoading(false);
+          setErrorMessage('Mot de passe incorrect pour le Super Administrateur OuaradTech. (Indice: Ouaradtech26@)');
+          return;
+        }
+
+        const superAdminUser = ensureUserPermissions(
+          users.find(u => u.login?.toLowerCase() === 'ouaradtech') || SUPER_ADMIN_USER
+        );
+
+        if (rememberMe) {
+          localStorage.setItem('hg_auth_user', JSON.stringify(superAdminUser));
+        } else {
+          sessionStorage.setItem('hg_auth_user', JSON.stringify(superAdminUser));
+        }
+
+        setIsLoading(false);
+        onLoginSuccess(superAdminUser);
+        return;
+      }
+
+      // 2. Find matching user
       const matchedUser = users.find(u => {
         const matchLogin = u.login && u.login.toLowerCase() === cleanId;
         const matchMatricule = u.matricule && u.matricule.toLowerCase() === cleanId;
@@ -59,20 +85,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
       // Master fallback for admin or universal access if needed
       if (!matchedUser && (cleanId === 'admin' || cleanId === 'administrateur')) {
-        const adminUser = users.find(u => u.role === 'Administrateur') || users[0];
+        const adminUser = users.find(u => u.role === 'Administrateur' || u.role === 'Super Administrateur') || users[0];
         if (adminUser) {
+          const readyAdmin = ensureUserPermissions(adminUser);
           if (rememberMe) {
-            localStorage.setItem('hg_auth_user', JSON.stringify(adminUser));
+            localStorage.setItem('hg_auth_user', JSON.stringify(readyAdmin));
           }
           setIsLoading(false);
-          onLoginSuccess(adminUser);
+          onLoginSuccess(readyAdmin);
           return;
         }
       }
 
       if (!matchedUser) {
         setIsLoading(false);
-        setErrorMessage('Identifiant introuvable. Utilisez un compte rapide ci-dessous ou vérifiez votre matricule.');
+        setErrorMessage('Identifiant introuvable. Utilisez les accès rapides ci-dessous ou le compte Super Admin.');
         return;
       }
 
@@ -90,16 +117,34 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         return;
       }
 
+      const readyUser = ensureUserPermissions(matchedUser);
+
       // Success
       if (rememberMe) {
-        localStorage.setItem('hg_auth_user', JSON.stringify(matchedUser));
+        localStorage.setItem('hg_auth_user', JSON.stringify(readyUser));
       } else {
-        sessionStorage.setItem('hg_auth_user', JSON.stringify(matchedUser));
+        sessionStorage.setItem('hg_auth_user', JSON.stringify(readyUser));
       }
 
       setIsLoading(false);
-      onLoginSuccess(matchedUser);
-    }, 250);
+      onLoginSuccess(readyUser);
+    }, 200);
+  };
+
+  const handleSuperAdminDirectLogin = () => {
+    setIdentifiant(SUPER_ADMIN_CREDENTIALS.login);
+    setPassword(SUPER_ADMIN_CREDENTIALS.motDePasse);
+    setErrorMessage(null);
+    setIsLoading(true);
+
+    setTimeout(() => {
+      const superAdminUser = ensureUserPermissions(
+        users.find(u => u.login?.toLowerCase() === 'ouaradtech') || SUPER_ADMIN_USER
+      );
+      localStorage.setItem('hg_auth_user', JSON.stringify(superAdminUser));
+      setIsLoading(false);
+      onLoginSuccess(superAdminUser);
+    }, 200);
   };
 
   const handleQuickLogin = (user: User) => {
@@ -109,11 +154,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     setIsLoading(true);
 
     setTimeout(() => {
+      const ready = ensureUserPermissions(user);
       if (rememberMe) {
-        localStorage.setItem('hg_auth_user', JSON.stringify(user));
+        localStorage.setItem('hg_auth_user', JSON.stringify(ready));
       }
       setIsLoading(false);
-      onLoginSuccess(user);
+      onLoginSuccess(ready);
     }, 200);
   };
 
@@ -240,6 +286,37 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               )}
             </button>
           </form>
+
+          {/* Super Admin Direct Access Card */}
+          <div className="mt-5 p-3.5 bg-gradient-to-r from-amber-950/40 via-yellow-950/20 to-amber-950/40 border border-amber-500/40 rounded-xl space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center">
+                  <Crown className="w-4 h-4 text-amber-400" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                    <span>Super Admin OuaradTech</span>
+                    <span className="text-[10px] px-1.5 py-0.2 bg-amber-500/20 text-amber-300 rounded font-semibold border border-amber-500/30">
+                      Tous Droits
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-amber-200/70 font-mono">
+                    login: <strong className="text-white">ouaradtech</strong> • mdp: <strong className="text-white">Ouaradtech26@</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleSuperAdminDirectLogin}
+              className="w-full py-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 transition cursor-pointer"
+            >
+              <Crown className="w-3.5 h-3.5 text-slate-950 fill-current" />
+              <span>Connexion Directe Super Admin (1-Clic)</span>
+            </button>
+          </div>
 
           {/* Quick Login Section */}
           <div className="mt-6 pt-5 border-t border-slate-800 space-y-2.5">

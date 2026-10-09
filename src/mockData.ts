@@ -404,6 +404,49 @@ export const INITIAL_ALERTS: ConsumptionAlert[] = [
 
 export const INITIAL_USERS: User[] = [
   {
+    id: 'usr-superadmin',
+    matricule: 'OUARAD-001',
+    login: 'ouaradtech',
+    motDePasse: 'Ouaradtech26@',
+    nom: 'OuaradTech',
+    prenom: 'Super Admin',
+    role: 'Super Administrateur',
+    email: 'admin@ouaradtech.com',
+    telephone: '+212 6 61 00 26 26',
+    statut: 'Actif',
+    badgeCode: 'RFID-SUPER-MASTER-001',
+    departement: 'Direction Générale OuaradTech (Tous Droits)',
+    dateCreation: '2024-01-01',
+    permissions: {
+      menus: {
+        dashboard: true,
+        entries: true,
+        dispenses: true,
+        citernes: true,
+        vehicles: true,
+        gestion: true,
+        fournisseurs: true,
+        users: true,
+        repairs: true,
+        alerts: true,
+        architecture: true,
+        controle_total: true
+      },
+      options: {
+        canAddEntries: true,
+        canAddDispenses: true,
+        canExportReports: true,
+        canPrintReceipts: true,
+        canManageCiternes: true,
+        canManageVehicles: true,
+        canManageUsers: true,
+        canManageSubscriptions: true,
+        canManageSecurity: true,
+        canEmergencyLockdown: true
+      }
+    }
+  },
+  {
     id: 'usr-1',
     matricule: 'ADM-001',
     login: 'benali',

@@ -97,8 +97,49 @@ export interface ThemeConfig {
   isDark: boolean;
 }
 
-export type UserRole = 'Administrateur' | 'Chef de Dépôt' | 'Pompiste' | 'Chauffeur / Opérateur' | 'Responsable Maintenance';
+export type UserRole = 
+  | 'Super Administrateur'
+  | 'Administrateur' 
+  | 'Chef de Dépôt' 
+  | 'Pompiste' 
+  | 'Chauffeur / Opérateur' 
+  | 'Responsable Maintenance'
+  | 'Client / Opérateur Invité';
+
 export type UserStatus = 'Actif' | 'Inactif' | 'Suspendu';
+
+export interface UserMenuPermissions {
+  dashboard: boolean;
+  entries: boolean;
+  dispenses: boolean;
+  citernes: boolean;
+  vehicles: boolean;
+  gestion: boolean;
+  fournisseurs: boolean;
+  users: boolean;
+  repairs: boolean;
+  alerts: boolean;
+  architecture: boolean;
+  controle_total: boolean;
+}
+
+export interface UserOptionPermissions {
+  canAddEntries: boolean;
+  canAddDispenses: boolean;
+  canExportReports: boolean;
+  canPrintReceipts: boolean;
+  canManageCiternes: boolean;
+  canManageVehicles: boolean;
+  canManageUsers: boolean;
+  canManageSubscriptions: boolean;
+  canManageSecurity: boolean;
+  canEmergencyLockdown: boolean;
+}
+
+export interface UserPermissions {
+  menus: UserMenuPermissions;
+  options: UserOptionPermissions;
+}
 
 export interface User {
   id: string;
@@ -115,6 +156,7 @@ export interface User {
   departement: string;
   dateCreation: string;
   dernierAcces?: string;
+  permissions?: UserPermissions;
 }
 
 export interface Repair {

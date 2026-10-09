@@ -11,8 +11,15 @@ import {
   AppTheme,
   Subscription,
   SecurityConfig,
-  AuditLog
+  AuditLog,
+  UserMenuPermissions,
+  UserOptionPermissions
 } from './types';
+import { 
+  SUPER_ADMIN_USER, 
+  ensureUserPermissions, 
+  getDefaultPermissionsForRole 
+} from './lib/userPermissions';
 import { 
   INITIAL_CITERNES, 
   INITIAL_VEHICLES, 
@@ -64,7 +71,8 @@ import {
   UserCheck,
   Shield,
   KeyRound,
-  ShieldAlert
+  ShieldAlert,
+  Crown
 } from 'lucide-react';
 
 export default function App() {
@@ -179,6 +187,23 @@ export default function App() {
     localStorage.removeItem('hg_auth_user');
     sessionStorage.removeItem('hg_auth_user');
     setCurrentUser(null);
+  };
+
+  // --- CONTRÔLE DES ACCÈS, MENUS & OPTIONS PAR LE SUPER ADMIN ---
+  const isSuperAdmin = currentUser?.role === 'Super Administrateur' || currentUser?.login?.toLowerCase() === 'ouaradtech';
+
+  const canAccessMenu = (menuKey: keyof UserMenuPermissions): boolean => {
+    if (!currentUser) return false;
+    if (isSuperAdmin) return true;
+    const perms = currentUser.permissions || getDefaultPermissionsForRole(currentUser.role);
+    return perms.menus[menuKey] !== false;
+  };
+
+  const canExecuteOption = (optionKey: keyof UserOptionPermissions): boolean => {
+    if (!currentUser) return false;
+    if (isSuperAdmin) return true;
+    const perms = currentUser.permissions || getDefaultPermissionsForRole(currentUser.role);
+    return perms.options[optionKey] !== false;
   };
 
   // --- THEME STATE (5 THÈMES ÉLÉGANTS DE PRESTIGE) ---
@@ -297,23 +322,49 @@ export default function App() {
 
   const [users, setUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem('hg_users');
+    let loadedUsers: User[] = INITIAL_USERS;
     if (saved) {
       try {
         const migrated = migrateStorageData(saved);
         const parsed: User[] = JSON.parse(migrated);
-        return parsed.map(u => {
+        loadedUsers = parsed.map(u => {
           const match = INITIAL_USERS.find(iu => iu.id === u.id || iu.matricule === u.matricule);
           return {
             ...u,
             login: u.login || match?.login || u.matricule.toLowerCase(),
-            motDePasse: u.motDePasse || match?.motDePasse || 'admin123'
+            motDePasse: u.motDePasse || match?.motDePasse || 'admin123',
+            permissions: u.permissions || match?.permissions
           };
         });
       } catch (e) {
-        return INITIAL_USERS;
+        loadedUsers = INITIAL_USERS;
       }
     }
-    return INITIAL_USERS;
+
+    // Assurer la présence constante et inaltérable du Super Administrateur OuaradTech
+    const hasSuperAdmin = loadedUsers.some(u => 
+      u.login?.toLowerCase() === 'ouaradtech' || 
+      u.id === 'usr-superadmin' || 
+      u.role === 'Super Administrateur'
+    );
+    if (!hasSuperAdmin) {
+      loadedUsers = [SUPER_ADMIN_USER, ...loadedUsers];
+    } else {
+      loadedUsers = loadedUsers.map(u => {
+        if (u.login?.toLowerCase() === 'ouaradtech' || u.id === 'usr-superadmin') {
+          return {
+            ...u,
+            ...SUPER_ADMIN_USER,
+            login: 'ouaradtech',
+            motDePasse: 'Ouaradtech26@',
+            role: 'Super Administrateur'
+          };
+        }
+        return ensureUserPermissions(u);
+      });
+    }
+
+    return loadedUsers.map(ensureUserPermissions);
   });
 
   const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>(() => {
@@ -865,241 +916,255 @@ export default function App() {
               </div>
             </div>
 
-            {/* Desktop Navigation Links */}
+            {/* Desktop Navigation Links (Filtrés dynamiquement selon les habilitations du profil ou Super Admin) */}
             <nav className="hidden md:flex items-center gap-1.5 text-xs font-semibold">
-              <button
-                onClick={() => setActiveTab('dashboard')}
-                className={`px-3 py-2 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
-                  activeTab === 'dashboard'
-                    ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                <Gauge className="w-4 h-4" />
-                <span>Tableau de Bord</span>
-              </button>
+              {canAccessMenu('dashboard') && (
+                <button
+                  onClick={() => setActiveTab('dashboard')}
+                  className={`px-3 py-2 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
+                    activeTab === 'dashboard'
+                      ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  <Gauge className="w-4 h-4" />
+                  <span>Tableau de Bord</span>
+                </button>
+              )}
 
-              <button
-                onClick={() => setActiveTab('entries')}
-                className={`px-3 py-2 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
-                  activeTab === 'entries'
-                    ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                <ArrowDownToLine className="w-4 h-4" />
-                <span>Entrées / Dépotages</span>
-              </button>
+              {canAccessMenu('entries') && (
+                <button
+                  onClick={() => setActiveTab('entries')}
+                  className={`px-3 py-2 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
+                    activeTab === 'entries'
+                      ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  <ArrowDownToLine className="w-4 h-4" />
+                  <span>Entrées / Dépotages</span>
+                </button>
+              )}
 
-              <button
-                onClick={() => setActiveTab('dispenses')}
-                className={`px-3 py-2 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
-                  activeTab === 'dispenses'
-                    ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                <Fuel className="w-4 h-4" />
-                <span>Sorties / Pleins</span>
-              </button>
+              {canAccessMenu('dispenses') && (
+                <button
+                  onClick={() => setActiveTab('dispenses')}
+                  className={`px-3 py-2 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
+                    activeTab === 'dispenses'
+                      ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  <Fuel className="w-4 h-4" />
+                  <span>Sorties / Pleins</span>
+                </button>
+              )}
 
-              {/* MENU UTILISATEURS ACTIVÉ (Premier niveau pour accès direct) */}
-              <button
-                onClick={() => setActiveTab('utilisateurs')}
-                className={`px-3 py-2 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
-                  activeTab === 'utilisateurs'
-                    ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
-                }`}
-                title="Gestion des Utilisateurs, Pompistes et Opérateurs"
-              >
-                <Users className="w-4 h-4 text-purple-400" />
-                <span>Utilisateurs & Opérateurs</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono-num font-bold ${
-                  activeTab === 'utilisateurs'
-                    ? 'bg-slate-950 text-amber-400'
-                    : 'bg-slate-800 text-slate-300 border border-slate-700'
-                }`}>
-                  {users.length}
-                </span>
-              </button>
+              {/* MENU UTILISATEURS ACTIVÉ (Géré par Super Admin) */}
+              {canAccessMenu('users') && (
+                <button
+                  onClick={() => setActiveTab('utilisateurs')}
+                  className={`px-3 py-2 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
+                    activeTab === 'utilisateurs'
+                      ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                  }`}
+                  title="Gestion des Utilisateurs, Clients et Habilitations Menus"
+                >
+                  <Users className="w-4 h-4 text-purple-400" />
+                  <span>Utilisateurs & Droits</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono-num font-bold ${
+                    activeTab === 'utilisateurs'
+                      ? 'bg-slate-950 text-amber-400'
+                      : 'bg-slate-800 text-slate-300 border border-slate-700'
+                  }`}>
+                    {users.length}
+                  </span>
+                </button>
+              )}
 
               {/* MENU GESTION (Unified management and local storage) */}
-              <div className="relative" ref={dropdownRef}>
-                <div className="flex items-center">
-                  <button
-                    onClick={() => {
-                      setActiveTab('gestion');
-                      setIsGestionDropdownOpen(false);
-                    }}
-                    className={`px-3 py-2 rounded-l-lg flex items-center gap-1.5 transition cursor-pointer ${
-                      activeTab === 'gestion'
-                        ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
-                        : 'text-slate-300 hover:text-white hover:bg-slate-800 border-r border-slate-700/50'
-                    }`}
-                  >
-                    <Settings className="w-4 h-4" />
-                    <span>Menu Gestion</span>
-                  </button>
-                  <button
-                    onClick={() => setIsGestionDropdownOpen(!isGestionDropdownOpen)}
-                    className={`px-2 py-2 rounded-r-lg transition cursor-pointer ${
-                      activeTab === 'gestion'
-                        ? 'bg-amber-600 text-slate-950 font-bold'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                    }`}
-                    title="Dérouler les sous-modules de gestion"
-                  >
-                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isGestionDropdownOpen ? 'rotate-180' : ''}`} />
-                  </button>
-                </div>
-
-                {/* Dropdown Menu for Gestion */}
-                {isGestionDropdownOpen && (
-                  <div className="absolute left-0 mt-2 w-64 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-2 z-50 animate-in fade-in">
-                    <div className="px-3 py-1.5 text-[10px] uppercase font-bold text-slate-400 tracking-wider border-b border-slate-800">
-                      Gestion du Site Industriel
-                    </div>
-                    
+              {canAccessMenu('gestion') && (
+                <div className="relative" ref={dropdownRef}>
+                  <div className="flex items-center">
                     <button
-                      onClick={() => handleNavigateToGestion('utilisateurs')}
-                      className={`w-full px-3 py-2.5 text-left flex items-center justify-between text-xs hover:bg-slate-800 transition ${
-                        activeTab === 'gestion' && gestionSubTab === 'utilisateurs' ? 'text-amber-400 font-bold bg-slate-800/60' : 'text-slate-200'
+                      onClick={() => {
+                        setActiveTab('gestion');
+                        setIsGestionDropdownOpen(false);
+                      }}
+                      className={`px-3 py-2 rounded-l-lg flex items-center gap-1.5 transition cursor-pointer ${
+                        activeTab === 'gestion'
+                          ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
+                          : 'text-slate-300 hover:text-white hover:bg-slate-800 border-r border-slate-700/50'
                       }`}
                     >
-                      <div className="flex items-center gap-2">
-                        <Users className="w-4 h-4 text-purple-400" />
-                        <span>1. Gestion Utilisateurs</span>
-                      </div>
-                      <span className="text-[10px] text-slate-400 font-mono-num bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
-                        {users.length}
-                      </span>
+                      <Settings className="w-4 h-4" />
+                      <span>Menu Gestion</span>
                     </button>
-
                     <button
-                      onClick={() => handleNavigateToGestion('citernes')}
-                      className={`w-full px-3 py-2.5 text-left flex items-center justify-between text-xs hover:bg-slate-800 transition ${
-                        activeTab === 'gestion' && gestionSubTab === 'citernes' ? 'text-amber-400 font-bold bg-slate-800/60' : 'text-slate-200'
+                      onClick={() => setIsGestionDropdownOpen(!isGestionDropdownOpen)}
+                      className={`px-2 py-2 rounded-r-lg transition cursor-pointer ${
+                        activeTab === 'gestion'
+                          ? 'bg-amber-600 text-slate-950 font-bold'
+                          : 'text-slate-400 hover:text-white hover:bg-slate-800'
                       }`}
+                      title="Dérouler les sous-modules de gestion"
                     >
-                      <div className="flex items-center gap-2">
-                        <Layers className="w-4 h-4 text-amber-400" />
-                        <span>2. Gestion Citernes</span>
-                      </div>
-                      <span className="text-[10px] text-slate-400 font-mono-num bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
-                        {citernes.length}
-                      </span>
+                      <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isGestionDropdownOpen ? 'rotate-180' : ''}`} />
                     </button>
+                  </div>
 
-                    <button
-                      onClick={() => handleNavigateToGestion('types_engins')}
-                      className={`w-full px-3 py-2.5 text-left flex items-center justify-between text-xs hover:bg-slate-800 transition ${
-                        activeTab === 'gestion' && gestionSubTab === 'types_engins' ? 'text-amber-400 font-bold bg-slate-800/60' : 'text-slate-200'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <SlidersHorizontal className="w-4 h-4 text-blue-400" />
-                        <span>3. Types d'Engins</span>
+                  {/* Dropdown Menu for Gestion */}
+                  {isGestionDropdownOpen && (
+                    <div className="absolute left-0 mt-2 w-64 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-2 z-50 animate-in fade-in">
+                      <div className="px-3 py-1.5 text-[10px] uppercase font-bold text-slate-400 tracking-wider border-b border-slate-800">
+                        Gestion du Site Industriel
                       </div>
-                      <span className="text-[10px] text-slate-400 font-mono-num bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
-                        {vehicleTypes.length}
-                      </span>
-                    </button>
-
-                    <button
-                      onClick={() => handleNavigateToGestion('fournisseurs')}
-                      className={`w-full px-3 py-2.5 text-left flex items-center justify-between text-xs hover:bg-slate-800 transition ${
-                        activeTab === 'gestion' && gestionSubTab === 'fournisseurs' ? 'text-amber-400 font-bold bg-slate-800/60' : 'text-slate-200'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Building2 className="w-4 h-4 text-emerald-400" />
-                        <span>4. Gestion Fournisseurs</span>
-                      </div>
-                      <span className="text-[10px] text-slate-400 font-mono-num bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
-                        {fournisseurs.length}
-                      </span>
-                    </button>
-
-                    <button
-                      onClick={() => handleNavigateToGestion('parc_vehicules')}
-                      className={`w-full px-3 py-2.5 text-left flex items-center justify-between text-xs hover:bg-slate-800 transition ${
-                        activeTab === 'gestion' && gestionSubTab === 'parc_vehicules' ? 'text-amber-400 font-bold bg-slate-800/60' : 'text-slate-200'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Truck className="w-4 h-4 text-cyan-400" />
-                        <span>5. Parc Véhicules & Flotte</span>
-                      </div>
-                      <span className="text-[10px] text-slate-400 font-mono-num bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
-                        {vehicles.length}
-                      </span>
-                    </button>
-
-                    <div className="pt-1 mt-1 border-t border-slate-800">
+                      
                       <button
-                        onClick={() => handleNavigateToGestion('themes')}
+                        onClick={() => handleNavigateToGestion('utilisateurs')}
                         className={`w-full px-3 py-2.5 text-left flex items-center justify-between text-xs hover:bg-slate-800 transition ${
-                          activeTab === 'gestion' && gestionSubTab === 'themes' ? 'text-amber-400 font-bold bg-slate-800/60' : 'text-amber-300'
+                          activeTab === 'gestion' && gestionSubTab === 'utilisateurs' ? 'text-amber-400 font-bold bg-slate-800/60' : 'text-slate-200'
                         }`}
                       >
                         <div className="flex items-center gap-2">
-                          <Palette className="w-4 h-4 text-amber-400" />
-                          <span>Thèmes Graphiques</span>
+                          <Users className="w-4 h-4 text-purple-400" />
+                          <span>1. Habilitations & Utilisateurs</span>
                         </div>
-                      </button>
-
-                      <button
-                        onClick={() => handleNavigateToGestion('stockage_local')}
-                        className={`w-full px-3 py-2.5 text-left flex items-center justify-between text-xs hover:bg-slate-800 transition ${
-                          activeTab === 'gestion' && gestionSubTab === 'stockage_local' ? 'text-emerald-400 font-bold bg-slate-800/60' : 'text-emerald-300'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <HardDrive className="w-4 h-4 text-emerald-400" />
-                          <span>Stockage Local & Sauvegardes</span>
-                        </div>
-                        <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-bold">
-                          Persistant
+                        <span className="text-[10px] text-slate-400 font-mono-num bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                          {users.length}
                         </span>
                       </button>
-                    </div>
-                  </div>
-                )}
-              </div>
 
-              <button
-                onClick={() => setActiveTab('architecture')}
-                className={`px-3 py-2 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
-                  activeTab === 'architecture'
-                    ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-500/20'
-                    : 'text-blue-400 hover:text-blue-300 hover:bg-slate-800 border border-blue-900/50'
-                }`}
-              >
-                <FileText className="w-4 h-4" />
-                <span>Architecture</span>
-              </button>
+                      <button
+                        onClick={() => handleNavigateToGestion('citernes')}
+                        className={`w-full px-3 py-2.5 text-left flex items-center justify-between text-xs hover:bg-slate-800 transition ${
+                          activeTab === 'gestion' && gestionSubTab === 'citernes' ? 'text-amber-400 font-bold bg-slate-800/60' : 'text-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Layers className="w-4 h-4 text-amber-400" />
+                          <span>2. Gestion Citernes</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-mono-num bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                          {citernes.length}
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={() => handleNavigateToGestion('types_engins')}
+                        className={`w-full px-3 py-2.5 text-left flex items-center justify-between text-xs hover:bg-slate-800 transition ${
+                          activeTab === 'gestion' && gestionSubTab === 'types_engins' ? 'text-amber-400 font-bold bg-slate-800/60' : 'text-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <SlidersHorizontal className="w-4 h-4 text-blue-400" />
+                          <span>3. Types d'Engins</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-mono-num bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                          {vehicleTypes.length}
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={() => handleNavigateToGestion('fournisseurs')}
+                        className={`w-full px-3 py-2.5 text-left flex items-center justify-between text-xs hover:bg-slate-800 transition ${
+                          activeTab === 'gestion' && gestionSubTab === 'fournisseurs' ? 'text-amber-400 font-bold bg-slate-800/60' : 'text-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Building2 className="w-4 h-4 text-emerald-400" />
+                          <span>4. Gestion Fournisseurs</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-mono-num bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                          {fournisseurs.length}
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={() => handleNavigateToGestion('parc_vehicules')}
+                        className={`w-full px-3 py-2.5 text-left flex items-center justify-between text-xs hover:bg-slate-800 transition ${
+                          activeTab === 'gestion' && gestionSubTab === 'parc_vehicules' ? 'text-amber-400 font-bold bg-slate-800/60' : 'text-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Truck className="w-4 h-4 text-cyan-400" />
+                          <span>5. Parc Véhicules & Flotte</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-mono-num bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                          {vehicles.length}
+                        </span>
+                      </button>
+
+                      <div className="pt-1 mt-1 border-t border-slate-800">
+                        <button
+                          onClick={() => handleNavigateToGestion('themes')}
+                          className={`w-full px-3 py-2.5 text-left flex items-center justify-between text-xs hover:bg-slate-800 transition ${
+                            activeTab === 'gestion' && gestionSubTab === 'themes' ? 'text-amber-400 font-bold bg-slate-800/60' : 'text-amber-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Palette className="w-4 h-4 text-amber-400" />
+                            <span>Thèmes Graphiques</span>
+                          </div>
+                        </button>
+
+                        <button
+                          onClick={() => handleNavigateToGestion('stockage_local')}
+                          className={`w-full px-3 py-2.5 text-left flex items-center justify-between text-xs hover:bg-slate-800 transition ${
+                            activeTab === 'gestion' && gestionSubTab === 'stockage_local' ? 'text-emerald-400 font-bold bg-slate-800/60' : 'text-emerald-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <HardDrive className="w-4 h-4 text-emerald-400" />
+                            <span>Stockage Local & Sauvegardes</span>
+                          </div>
+                          <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-bold">
+                            Persistant
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {canAccessMenu('architecture') && (
+                <button
+                  onClick={() => setActiveTab('architecture')}
+                  className={`px-3 py-2 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
+                    activeTab === 'architecture'
+                      ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-500/20'
+                      : 'text-blue-400 hover:text-blue-300 hover:bg-slate-800 border border-blue-900/50'
+                  }`}
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>Architecture</span>
+                </button>
+              )}
 
               {/* MENU CONTRÔLE TOTAL & ABONNEMENTS (CODES 36 CARACTÈRES) */}
-              <button
-                onClick={() => setActiveTab('controle_total')}
-                className={`px-3 py-2 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
-                  activeTab === 'controle_total'
-                    ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
-                    : 'text-amber-400 hover:text-amber-300 hover:bg-slate-800 border border-amber-500/30'
-                }`}
-                title="Panneau de Contrôle Total & Vente des Abonnements"
-              >
-                <KeyRound className="w-4 h-4 text-amber-400" />
-                <span>Contrôle Total</span>
-                <span className={`text-[9px] px-1 py-0.2 rounded font-mono-num font-bold ${
-                  activeTab === 'controle_total'
-                    ? 'bg-slate-950 text-amber-400'
-                    : 'bg-amber-500/20 text-amber-300'
-                }`}>
-                  36-Chars
-                </span>
-              </button>
+              {canAccessMenu('controle_total') && (
+                <button
+                  onClick={() => setActiveTab('controle_total')}
+                  className={`px-3 py-2 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
+                    activeTab === 'controle_total'
+                      ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
+                      : 'text-amber-400 hover:text-amber-300 hover:bg-slate-800 border border-amber-500/30'
+                  }`}
+                  title="Panneau de Contrôle Total & Vente des Abonnements"
+                >
+                  <KeyRound className="w-4 h-4 text-amber-400" />
+                  <span>Contrôle Total</span>
+                  <span className={`text-[9px] px-1 py-0.2 rounded font-mono-num font-bold ${
+                    activeTab === 'controle_total'
+                      ? 'bg-slate-950 text-amber-400'
+                      : 'bg-amber-500/20 text-amber-300'
+                  }`}>
+                    36-Chars
+                  </span>
+                </button>
+              )}
             </nav>
 
             {/* Live Clock, User Session & Status Badge */}
@@ -1142,28 +1207,54 @@ export default function App() {
 
               {/* Connected User Badge & Logout */}
               {currentUser && (
-                <div className="flex items-center gap-2 bg-slate-950 px-2.5 py-1 rounded-xl border border-slate-800 text-xs">
-                  <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-bold text-xs">
-                    {currentUser.prenom[0]}{currentUser.nom[0]}
-                  </div>
-                  <div className="hidden lg:block text-left leading-tight">
-                    <div className="font-bold text-slate-200 truncate max-w-[120px]">
-                      {currentUser.prenom} {currentUser.nom}
+                isSuperAdmin ? (
+                  <div className="flex items-center gap-2 bg-gradient-to-r from-amber-950/70 via-yellow-950/40 to-slate-950 px-2.5 py-1.5 rounded-xl border border-amber-500/50 shadow-sm shadow-amber-500/20 text-xs">
+                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-400 to-yellow-500 text-slate-950 flex items-center justify-center font-bold shadow shrink-0">
+                      <Crown className="w-4 h-4 fill-slate-950" />
                     </div>
-                    <div className="text-[10px] text-amber-400/90 font-medium">
-                      {currentUser.role}
+                    <div className="hidden lg:block text-left leading-tight">
+                      <div className="font-extrabold text-amber-300 truncate max-w-[140px] flex items-center gap-1">
+                        <span>ouaradtech</span>
+                        <span className="text-[9px] bg-amber-500/30 text-amber-200 px-1 py-0.2 rounded border border-amber-500/40">TOUS DROITS</span>
+                      </div>
+                      <div className="text-[10px] text-amber-200/80 font-mono">
+                        Super Administrateur
+                      </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      title="Se déconnecter (Verrouiller le poste)"
+                      className="p-1.5 rounded-lg hover:bg-red-950/80 text-slate-400 hover:text-red-400 transition cursor-pointer flex items-center gap-1"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span className="hidden xl:inline text-[10px] text-red-400 font-semibold">Quitter</span>
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    title="Se déconnecter (Verrouiller le poste)"
-                    className="p-1.5 rounded-lg hover:bg-red-950/80 text-slate-400 hover:text-red-400 transition cursor-pointer flex items-center gap-1"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    <span className="hidden xl:inline text-[10px] text-red-400 font-semibold">Quitter</span>
-                  </button>
-                </div>
+                ) : (
+                  <div className="flex items-center gap-2 bg-slate-950 px-2.5 py-1 rounded-xl border border-slate-800 text-xs">
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-bold text-xs shrink-0">
+                      {currentUser.prenom[0]}{currentUser.nom[0]}
+                    </div>
+                    <div className="hidden lg:block text-left leading-tight">
+                      <div className="font-bold text-slate-200 truncate max-w-[120px]">
+                        {currentUser.prenom} {currentUser.nom}
+                      </div>
+                      <div className="text-[10px] text-amber-400/90 font-medium">
+                        {currentUser.role}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      title="Se déconnecter (Verrouiller le poste)"
+                      className="p-1.5 rounded-lg hover:bg-red-950/80 text-slate-400 hover:text-red-400 transition cursor-pointer flex items-center gap-1"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span className="hidden xl:inline text-[10px] text-red-400 font-semibold">Quitter</span>
+                    </button>
+                  </div>
+                )
               )}
 
               {/* Mobile Menu Toggle */}
@@ -1182,13 +1273,22 @@ export default function App() {
           <div className="md:hidden bg-slate-900 border-b border-slate-800 px-4 pt-2 pb-4 space-y-1.5 text-xs">
             {/* Mobile User Profile Header */}
             {currentUser && (
-              <div className="p-2.5 mb-2 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
+              <div className={`p-2.5 mb-2 rounded-xl border flex items-center justify-between ${
+                isSuperAdmin ? 'bg-amber-950/30 border-amber-500/40' : 'bg-slate-950 border-slate-800'
+              }`}>
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-bold text-xs">
-                    {currentUser.prenom[0]}{currentUser.nom[0]}
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
+                    isSuperAdmin 
+                      ? 'bg-amber-500 text-slate-950 font-black' 
+                      : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                  }`}>
+                    {isSuperAdmin ? <Crown className="w-4 h-4 fill-slate-950" /> : `${currentUser.prenom[0]}${currentUser.nom[0]}`}
                   </div>
                   <div>
-                    <div className="font-bold text-slate-200">{currentUser.prenom} {currentUser.nom}</div>
+                    <div className="font-bold text-slate-200 flex items-center gap-1">
+                      <span>{currentUser.prenom} {currentUser.nom}</span>
+                      {isSuperAdmin && <span className="text-[9px] bg-amber-500/30 text-amber-300 px-1 rounded">Super Admin</span>}
+                    </div>
                     <div className="text-[10px] text-amber-400 font-mono">{currentUser.role} ({currentUser.matricule})</div>
                   </div>
                 </div>
@@ -1202,163 +1302,179 @@ export default function App() {
               </div>
             )}
 
-            <button
-              onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }}
-              className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 font-semibold ${
-                activeTab === 'dashboard' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-200'
-              }`}
-            >
-              <Gauge className="w-4 h-4" /> Tableau de Bord & Jauges
-            </button>
-            <button
-              onClick={() => { setActiveTab('entries'); setIsMobileMenuOpen(false); }}
-              className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 font-semibold ${
-                activeTab === 'entries' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-200'
-              }`}
-            >
-              <ArrowDownToLine className="w-4 h-4" /> Entrées de Stock & BL
-            </button>
-            <button
-              onClick={() => { setActiveTab('dispenses'); setIsMobileMenuOpen(false); }}
-              className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 font-semibold ${
-                activeTab === 'dispenses' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-200'
-              }`}
-            >
-              <Fuel className="w-4 h-4" /> Sorties / Pleins Carburant
-            </button>
+            {canAccessMenu('dashboard') && (
+              <button
+                onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }}
+                className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 font-semibold ${
+                  activeTab === 'dashboard' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-200'
+                }`}
+              >
+                <Gauge className="w-4 h-4" /> Tableau de Bord & Jauges
+              </button>
+            )}
+
+            {canAccessMenu('entries') && (
+              <button
+                onClick={() => { setActiveTab('entries'); setIsMobileMenuOpen(false); }}
+                className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 font-semibold ${
+                  activeTab === 'entries' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-200'
+                }`}
+              >
+                <ArrowDownToLine className="w-4 h-4" /> Entrées de Stock & BL
+              </button>
+            )}
+
+            {canAccessMenu('dispenses') && (
+              <button
+                onClick={() => { setActiveTab('dispenses'); setIsMobileMenuOpen(false); }}
+                className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 font-semibold ${
+                  activeTab === 'dispenses' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-200'
+                }`}
+              >
+                <Fuel className="w-4 h-4" /> Sorties / Pleins Carburant
+              </button>
+            )}
 
             {/* Mobile Utilisateurs Button */}
-            <button
-              onClick={() => { setActiveTab('utilisateurs'); setIsMobileMenuOpen(false); }}
-              className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
-                activeTab === 'utilisateurs' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-200'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-purple-400" />
-                <span>Utilisateurs & Opérateurs Usine</span>
-              </div>
-              <span className="font-mono-num text-[10px] bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">({users.length})</span>
-            </button>
+            {canAccessMenu('users') && (
+              <button
+                onClick={() => { setActiveTab('utilisateurs'); setIsMobileMenuOpen(false); }}
+                className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
+                  activeTab === 'utilisateurs' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-200'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-purple-400" />
+                  <span>Habilitations & Utilisateurs Usine</span>
+                </div>
+                <span className="font-mono-num text-[10px] bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">({users.length})</span>
+              </button>
+            )}
 
             {/* Mobile Gestion Section */}
-            <div className="pt-2 border-t border-slate-800">
-              <div className="px-3 py-1 text-[11px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Settings className="w-3.5 h-3.5" />
-                <span>Centre de Gestion & Administration</span>
+            {canAccessMenu('gestion') && (
+              <div className="pt-2 border-t border-slate-800">
+                <div className="px-3 py-1 text-[11px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Settings className="w-3.5 h-3.5" />
+                  <span>Centre de Gestion & Administration</span>
+                </div>
+                <div className="space-y-1 pl-2">
+                  <button
+                    onClick={() => handleNavigateToGestion('utilisateurs')}
+                    className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
+                      activeTab === 'gestion' && gestionSubTab === 'utilisateurs' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-purple-400" />
+                      <span>1. Habilitations & Utilisateurs</span>
+                    </div>
+                    <span className="font-mono-num text-[10px] text-slate-400">({users.length})</span>
+                  </button>
+                  <button
+                    onClick={() => handleNavigateToGestion('citernes')}
+                    className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
+                      activeTab === 'gestion' && gestionSubTab === 'citernes' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-amber-400" />
+                      <span>2. Gestion Citernes</span>
+                    </div>
+                    <span className="font-mono-num text-[10px] text-slate-400">({citernes.length})</span>
+                  </button>
+                  <button
+                    onClick={() => handleNavigateToGestion('types_engins')}
+                    className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
+                      activeTab === 'gestion' && gestionSubTab === 'types_engins' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <SlidersHorizontal className="w-4 h-4 text-blue-400" />
+                      <span>3. Types d'Engins</span>
+                    </div>
+                    <span className="font-mono-num text-[10px] text-slate-400">({vehicleTypes.length})</span>
+                  </button>
+                  <button
+                    onClick={() => handleNavigateToGestion('fournisseurs')}
+                    className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
+                      activeTab === 'gestion' && gestionSubTab === 'fournisseurs' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-emerald-400" />
+                      <span>4. Gestion Fournisseurs</span>
+                    </div>
+                    <span className="font-mono-num text-[10px] text-slate-400">({fournisseurs.length})</span>
+                  </button>
+                  <button
+                    onClick={() => handleNavigateToGestion('parc_vehicules')}
+                    className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
+                      activeTab === 'gestion' && gestionSubTab === 'parc_vehicules' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Truck className="w-4 h-4 text-cyan-400" />
+                      <span>5. Parc Véhicules & Flotte</span>
+                    </div>
+                    <span className="font-mono-num text-[10px] text-slate-400">({vehicles.length})</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleNavigateToGestion('themes')}
+                    className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
+                      activeTab === 'gestion' && gestionSubTab === 'themes' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-amber-400'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Palette className="w-4 h-4" />
+                      <span>6. Thèmes Graphiques</span>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => handleNavigateToGestion('stockage_local')}
+                    className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
+                      activeTab === 'gestion' && gestionSubTab === 'stockage_local' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-emerald-400'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <HardDrive className="w-4 h-4" />
+                      <span>7. Stockage Local & Sauvegardes</span>
+                    </div>
+                    <span className="font-mono-num text-[10px] font-bold">Persistant</span>
+                  </button>
+                </div>
               </div>
-              <div className="space-y-1 pl-2">
-                <button
-                  onClick={() => handleNavigateToGestion('utilisateurs')}
-                  className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
-                    activeTab === 'gestion' && gestionSubTab === 'utilisateurs' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-purple-400" />
-                    <span>1. Gestion Utilisateurs</span>
-                  </div>
-                  <span className="font-mono-num text-[10px] text-slate-400">({users.length})</span>
-                </button>
-                <button
-                  onClick={() => handleNavigateToGestion('citernes')}
-                  className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
-                    activeTab === 'gestion' && gestionSubTab === 'citernes' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-amber-400" />
-                    <span>2. Gestion Citernes</span>
-                  </div>
-                  <span className="font-mono-num text-[10px] text-slate-400">({citernes.length})</span>
-                </button>
-                <button
-                  onClick={() => handleNavigateToGestion('types_engins')}
-                  className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
-                    activeTab === 'gestion' && gestionSubTab === 'types_engins' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <SlidersHorizontal className="w-4 h-4 text-blue-400" />
-                    <span>3. Types d'Engins</span>
-                  </div>
-                  <span className="font-mono-num text-[10px] text-slate-400">({vehicleTypes.length})</span>
-                </button>
-                <button
-                  onClick={() => handleNavigateToGestion('fournisseurs')}
-                  className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
-                    activeTab === 'gestion' && gestionSubTab === 'fournisseurs' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-emerald-400" />
-                    <span>4. Gestion Fournisseurs</span>
-                  </div>
-                  <span className="font-mono-num text-[10px] text-slate-400">({fournisseurs.length})</span>
-                </button>
-                <button
-                  onClick={() => handleNavigateToGestion('parc_vehicules')}
-                  className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
-                    activeTab === 'gestion' && gestionSubTab === 'parc_vehicules' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Truck className="w-4 h-4 text-cyan-400" />
-                    <span>5. Parc Véhicules & Flotte</span>
-                  </div>
-                  <span className="font-mono-num text-[10px] text-slate-400">({vehicles.length})</span>
-                </button>
+            )}
 
-                <button
-                  onClick={() => handleNavigateToGestion('themes')}
-                  className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
-                    activeTab === 'gestion' && gestionSubTab === 'themes' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-amber-400'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Palette className="w-4 h-4" />
-                    <span>6. Thèmes Graphiques</span>
-                  </div>
-                </button>
+            {canAccessMenu('architecture') && (
+              <button
+                onClick={() => { setActiveTab('architecture'); setIsMobileMenuOpen(false); }}
+                className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 font-semibold ${
+                  activeTab === 'architecture' ? 'bg-blue-600 text-white font-bold' : 'text-blue-400'
+                }`}
+              >
+                <FileText className="w-4 h-4" /> Architecture Technique & DDL
+              </button>
+            )}
 
-                <button
-                  onClick={() => handleNavigateToGestion('stockage_local')}
-                  className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
-                    activeTab === 'gestion' && gestionSubTab === 'stockage_local' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-emerald-400'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <HardDrive className="w-4 h-4" />
-                    <span>7. Stockage Local & Sauvegardes</span>
-                  </div>
-                  <span className="font-mono-num text-[10px] font-bold">Persistant</span>
-                </button>
-              </div>
-            </div>
-
-            <button
-              onClick={() => { setActiveTab('architecture'); setIsMobileMenuOpen(false); }}
-              className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 font-semibold ${
-                activeTab === 'architecture' ? 'bg-blue-600 text-white font-bold' : 'text-blue-400'
-              }`}
-            >
-              <FileText className="w-4 h-4" /> Architecture Technique & DDL
-            </button>
-
-            <button
-              onClick={() => { setActiveTab('controle_total'); setIsMobileMenuOpen(false); }}
-              className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
-                activeTab === 'controle_total' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-amber-400'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <KeyRound className="w-4 h-4" />
-                <span>Contrôle Total & Abonnements</span>
-              </div>
-              <span className="font-mono text-[10px] bg-slate-950 px-1.5 py-0.5 rounded text-amber-300 font-bold">
-                36 Chars
-              </span>
-            </button>
+            {canAccessMenu('controle_total') && (
+              <button
+                onClick={() => { setActiveTab('controle_total'); setIsMobileMenuOpen(false); }}
+                className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
+                  activeTab === 'controle_total' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-amber-400'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <KeyRound className="w-4 h-4" />
+                  <span>Contrôle Total & Abonnements</span>
+                </div>
+                <span className="font-mono text-[10px] bg-slate-950 px-1.5 py-0.5 rounded text-amber-300 font-bold">
+                  36 Chars
+                </span>
+              </button>
+            )}
           </div>
         )}
       </header>

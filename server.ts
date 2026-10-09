@@ -438,6 +438,42 @@ app.get('/api/security/audit-logs', (_req: Request, res: Response) => {
   res.json(store.auditLogs);
 });
 
+// Super Admin Authentication verification route
+app.post('/api/auth/superadmin', (req: Request, res: Response) => {
+  const { login, password } = req.body;
+  if (
+    login?.toLowerCase() === 'ouaradtech' && 
+    password === 'Ouaradtech26@'
+  ) {
+    const store = readStore();
+    store.auditLogs.unshift({
+      id: `LOG-${Date.now()}`,
+      timestamp: new Date().toLocaleString('fr-FR'),
+      user: 'Super Admin (ouaradtech)',
+      action: 'Connexion Super Admin Réussie',
+      module: 'Authentification & Contrôle Total',
+      details: 'Accès maître autorisé avec 100% des droits, menus et options.',
+      status: 'Succès',
+      ipAddress: req.ip || '127.0.0.1'
+    });
+    saveStore(store);
+    return res.json({
+      success: true,
+      message: 'Authentification Super Administrateur réussie',
+      user: {
+        id: 'usr-superadmin',
+        matricule: 'OUARAD-001',
+        login: 'ouaradtech',
+        nom: 'OuaradTech',
+        prenom: 'Super Admin',
+        role: 'Super Administrateur',
+        email: 'admin@ouaradtech.com'
+      }
+    });
+  }
+  return res.status(401).json({ success: false, error: 'Identifiants Super Admin invalides' });
+});
+
 app.post('/api/security/audit-logs', (req: Request, res: Response) => {
   const store = readStore();
   const newLog = {
