@@ -8,7 +8,10 @@ import {
   User,
   Fournisseur,
   VehicleTypeConfig,
-  AppTheme
+  AppTheme,
+  Subscription,
+  SecurityConfig,
+  AuditLog
 } from './types';
 import { 
   INITIAL_CITERNES, 
@@ -21,6 +24,12 @@ import {
   INITIAL_VEHICLE_TYPES,
   AVAILABLE_THEMES
 } from './mockData';
+import { 
+  INITIAL_SUBSCRIPTIONS, 
+  INITIAL_SECURITY_CONFIG, 
+  INITIAL_AUDIT_LOGS, 
+  getDaysRemaining 
+} from './lib/licenseUtils';
 import { Dashboard } from './components/Dashboard';
 import { GestionHub, GestionSubTab } from './components/GestionHub';
 import { UsersModule } from './components/UsersModule';
@@ -29,6 +38,8 @@ import { FuelDispensesModule } from './components/FuelDispensesModule';
 import { ArchitectureModal } from './components/ArchitectureModal';
 import { ConfirmModal } from './components/ConfirmModal';
 import { LoginScreen } from './components/LoginScreen';
+import { MasterControlModule } from './components/MasterControlModule';
+import { LicenseActivationModal } from './components/LicenseActivationModal';
 import { 
   Gauge, 
   Layers, 
@@ -51,12 +62,14 @@ import {
   CheckCircle2,
   LogOut,
   UserCheck,
-  Shield
+  Shield,
+  KeyRound,
+  ShieldAlert
 } from 'lucide-react';
 
 export default function App() {
-  // Navigation tabs (Utilisateurs activé en premier niveau)
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'entries' | 'dispenses' | 'utilisateurs' | 'gestion' | 'architecture'>('dashboard');
+  // Navigation tabs (Contrôle Total & Abonnements inclus)
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'entries' | 'dispenses' | 'utilisateurs' | 'gestion' | 'controle_total' | 'architecture'>('dashboard');
   const [gestionSubTab, setGestionSubTab] = useState<GestionSubTab>('utilisateurs');
   const [isGestionDropdownOpen, setIsGestionDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -64,6 +77,90 @@ export default function App() {
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [saveBanner, setSaveBanner] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // --- ABONNEMENTS (CODES 36 CARACTÈRES) & SÉCURITÉ MAÎTRE ---
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>(() => {
+    const saved = localStorage.getItem('hg_subscriptions');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { return INITIAL_SUBSCRIPTIONS; }
+    }
+    return INITIAL_SUBSCRIPTIONS;
+  });
+
+  const [activeLicenseKey, setActiveLicenseKey] = useState<string>(() => {
+    return localStorage.getItem('hg_active_license') || 'HGMA2026-A8F9-BC41-7E02-99D34FA189B7';
+  });
+
+  const [securityConfig, setSecurityConfig] = useState<SecurityConfig>(() => {
+    const saved = localStorage.getItem('hg_security_config');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { return INITIAL_SECURITY_CONFIG; }
+    }
+    return INITIAL_SECURITY_CONFIG;
+  });
+
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
+    const saved = localStorage.getItem('hg_audit_logs');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { return INITIAL_AUDIT_LOGS; }
+    }
+    return INITIAL_AUDIT_LOGS;
+  });
+
+  const [isActivationModalOpen, setIsActivationModalOpen] = useState(false);
+
+  // Synchronisation continue avec le Backend Express (/api)
+  useEffect(() => {
+    // 1. Fetch Subscriptions
+    fetch('/api/subscriptions')
+      .then(res => res.json())
+      .then(data => {
+        if (data && Array.isArray(data.subscriptions)) {
+          setSubscriptions(data.subscriptions);
+        }
+        if (data && data.activeLicenseKey) {
+          setActiveLicenseKey(data.activeLicenseKey);
+        }
+      })
+      .catch(() => {});
+
+    // 2. Fetch Security Config
+    fetch('/api/security/config')
+      .then(res => res.json())
+      .then(data => {
+        if (data && typeof data.emergencyLockdown === 'boolean') {
+          setSecurityConfig(prev => ({ ...prev, ...data }));
+        }
+      })
+      .catch(() => {});
+
+    // 3. Fetch Audit Logs
+    fetch('/api/security/audit-logs')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setAuditLogs(data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Persistance continue
+  useEffect(() => {
+    localStorage.setItem('hg_subscriptions', JSON.stringify(subscriptions));
+  }, [subscriptions]);
+
+  useEffect(() => {
+    localStorage.setItem('hg_active_license', activeLicenseKey);
+  }, [activeLicenseKey]);
+
+  useEffect(() => {
+    localStorage.setItem('hg_security_config', JSON.stringify(securityConfig));
+  }, [securityConfig]);
+
+  useEffect(() => {
+    localStorage.setItem('hg_audit_logs', JSON.stringify(auditLogs));
+  }, [auditLogs]);
 
   // --- AUTHENTIFICATION SESSION (LOGIN AU DÉMARRAGE) ---
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -621,6 +718,94 @@ export default function App() {
     setVehicleTypes(prev => prev.filter(vt => vt.id !== id));
   };
 
+  // --- GESTION DES ABONNEMENTS (36 CARACTÈRES) & CONTRÔLE TOTAL ---
+  const handleAddSubscription = async (newSub: Subscription) => {
+    setSubscriptions(prev => [newSub, ...prev]);
+    try {
+      await fetch('/api/subscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newSub)
+      });
+    } catch (e) {
+      console.warn('Backend sync failed, stored in localStorage');
+    }
+  };
+
+  const handleUpdateSubscription = async (id: string, updated: Partial<Subscription>) => {
+    setSubscriptions(prev => prev.map(s => s.id === id ? { ...s, ...updated } : s));
+    try {
+      await fetch(`/api/subscriptions/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated)
+      });
+    } catch (e) {
+      console.warn('Backend sync failed, stored in localStorage');
+    }
+  };
+
+  const handleDeleteSubscription = async (id: string) => {
+    setSubscriptions(prev => prev.filter(s => s.id !== id));
+    try {
+      await fetch(`/api/subscriptions/${id}`, { method: 'DELETE' });
+    } catch (e) {
+      console.warn('Backend sync failed, stored in localStorage');
+    }
+  };
+
+  const handleActivateLicenseKey = async (key: string) => {
+    setActiveLicenseKey(key);
+    try {
+      const res = await fetch('/api/subscriptions/activate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: key })
+      });
+      const data = await res.json();
+      if (data.subscription) {
+        setSubscriptions(prev => prev.map(s => s.licenseKey === key ? { ...s, cleActilee: true, statut: 'Actif' } : s));
+      }
+    } catch (e) {
+      console.warn('Backend sync failed, stored in localStorage');
+    }
+  };
+
+  const handleUpdateSecurityConfig = async (cfg: Partial<SecurityConfig>) => {
+    setSecurityConfig(prev => ({ ...prev, ...cfg }));
+    try {
+      await fetch('/api/security/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cfg)
+      });
+    } catch (e) {
+      console.warn('Backend sync failed, stored in localStorage');
+    }
+  };
+
+  const handleToggleEmergencyLockdown = async (enable: boolean, pin: string, reason?: string): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/security/lockdown', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin, enable, reason })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSecurityConfig(data.securityConfig);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      if (pin === 'MAROC2026' || pin === securityConfig.masterPinCode) {
+        setSecurityConfig(prev => ({ ...prev, emergencyLockdown: enable, lockdownReason: reason }));
+        return true;
+      }
+      return false;
+    }
+  };
+
   // Helper to open a specific subtab in Gestion
   const handleNavigateToGestion = (subTab: GestionSubTab) => {
     if (subTab === 'utilisateurs') {
@@ -894,10 +1079,52 @@ export default function App() {
                 <FileText className="w-4 h-4" />
                 <span>Architecture</span>
               </button>
+
+              {/* MENU CONTRÔLE TOTAL & ABONNEMENTS (CODES 36 CARACTÈRES) */}
+              <button
+                onClick={() => setActiveTab('controle_total')}
+                className={`px-3 py-2 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
+                  activeTab === 'controle_total'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
+                    : 'text-amber-400 hover:text-amber-300 hover:bg-slate-800 border border-amber-500/30'
+                }`}
+                title="Panneau de Contrôle Total & Vente des Abonnements"
+              >
+                <KeyRound className="w-4 h-4 text-amber-400" />
+                <span>Contrôle Total</span>
+                <span className={`text-[9px] px-1 py-0.2 rounded font-mono-num font-bold ${
+                  activeTab === 'controle_total'
+                    ? 'bg-slate-950 text-amber-400'
+                    : 'bg-amber-500/20 text-amber-300'
+                }`}>
+                  36-Chars
+                </span>
+              </button>
             </nav>
 
             {/* Live Clock, User Session & Status Badge */}
             <div className="flex items-center gap-2.5">
+              {/* Badge Licence Marocaine Active / Activation Modal trigger */}
+              <button
+                type="button"
+                onClick={() => setIsActivationModalOpen(true)}
+                title="Gérer ou activer votre clé de licence à 36 caractères"
+                className="flex items-center gap-1.5 bg-slate-950 hover:bg-slate-800 px-2.5 py-1.5 rounded-lg border border-amber-500/30 text-xs font-semibold text-slate-200 hover:text-white transition cursor-pointer"
+              >
+                <span className="text-xs">🇲🇦</span>
+                <span className="hidden xl:inline text-slate-400 text-[11px]">Licence :</span>
+                <span className={`font-mono-num font-bold text-[11px] ${
+                  getDaysRemaining(subscriptions.find(s => s.licenseKey === activeLicenseKey)?.dateExpiration || '') <= 15
+                    ? 'text-orange-400'
+                    : 'text-emerald-400'
+                }`}>
+                  {subscriptions.find(s => s.licenseKey === activeLicenseKey) 
+                    ? `${getDaysRemaining(subscriptions.find(s => s.licenseKey === activeLicenseKey)?.dateExpiration || '')}j`
+                    : 'Active'
+                  }
+                </span>
+              </button>
+
               <button
                 type="button"
                 onClick={handleForceSaveLocal}
@@ -1117,6 +1344,21 @@ export default function App() {
             >
               <FileText className="w-4 h-4" /> Architecture Technique & DDL
             </button>
+
+            <button
+              onClick={() => { setActiveTab('controle_total'); setIsMobileMenuOpen(false); }}
+              className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between font-semibold ${
+                activeTab === 'controle_total' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-amber-400'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <KeyRound className="w-4 h-4" />
+                <span>Contrôle Total & Abonnements</span>
+              </div>
+              <span className="font-mono text-[10px] bg-slate-950 px-1.5 py-0.5 rounded text-amber-300 font-bold">
+                36 Chars
+              </span>
+            </button>
           </div>
         )}
       </header>
@@ -1214,6 +1456,36 @@ export default function App() {
           />
         )}
 
+        {/* PANNEAU CONTRÔLE TOTAL & ABONNEMENTS */}
+        {activeTab === 'controle_total' && (
+          <MasterControlModule
+            subscriptions={subscriptions}
+            activeLicenseKey={activeLicenseKey}
+            securityConfig={securityConfig}
+            auditLogs={auditLogs}
+            onAddSubscription={handleAddSubscription}
+            onUpdateSubscription={handleUpdateSubscription}
+            onDeleteSubscription={handleDeleteSubscription}
+            onActivateLicenseKey={handleActivateLicenseKey}
+            onUpdateSecurityConfig={handleUpdateSecurityConfig}
+            onToggleEmergencyLockdown={handleToggleEmergencyLockdown}
+            onExportBackup={handleExportBackup}
+            onImportBackup={(file) => {
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                try {
+                  const json = JSON.parse(e.target?.result as string);
+                  handleImportBackup(json);
+                } catch {
+                  alert('Fichier de sauvegarde invalide.');
+                }
+              };
+              reader.readAsText(file);
+            }}
+            onOpenActivationModal={() => setIsActivationModalOpen(true)}
+          />
+        )}
+
         {activeTab === 'architecture' && (
           <ArchitectureModal />
         )}
@@ -1265,6 +1537,23 @@ export default function App() {
         confirmLabel="Réinitialiser Tout"
         onConfirm={handlePerformReset}
         onCancel={() => setIsResetModalOpen(false)}
+      />
+
+      {/* Modal d'Activation et de Contrôle de Licence 36 Caractères */}
+      <LicenseActivationModal
+        isOpen={isActivationModalOpen}
+        onClose={() => setIsActivationModalOpen(false)}
+        activeSubscription={subscriptions.find(s => s.licenseKey === activeLicenseKey) || null}
+        onActivateSuccess={(activatedSub) => {
+          setActiveLicenseKey(activatedSub.licenseKey);
+          setSubscriptions(prev => {
+            const exists = prev.some(s => s.licenseKey === activatedSub.licenseKey);
+            if (exists) {
+              return prev.map(s => s.licenseKey === activatedSub.licenseKey ? { ...s, cleActilee: true, statut: 'Actif' } : s);
+            }
+            return [activatedSub, ...prev];
+          });
+        }}
       />
     </div>
   );

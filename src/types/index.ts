@@ -166,3 +166,49 @@ export interface ConsumptionAlert {
   vehiculeCode?: string;
   citerneCode?: string;
 }
+
+export type SubscriptionPlan = 'Mensuel' | 'Trimestriel' | 'Annuel' | 'Entreprise' | 'Essai';
+
+export interface Subscription {
+  id: string;
+  licenseKey: string; // Code de 36 caractères (lettres & chiffres)
+  clientName: string;
+  entreprise: string;
+  contact: string;
+  telephone: string;
+  ville: string;
+  plan: SubscriptionPlan;
+  dateEmission: string;
+  dateExpiration: string;
+  statut: 'Actif' | 'Expiré' | 'Suspendu' | 'En Attente';
+  prixMAD: number;
+  maxVehicules: number;
+  maxCiternes: number;
+  notes?: string;
+  cleActilee?: boolean;
+}
+
+export interface SecurityConfig {
+  emergencyLockdown: boolean;
+  maintenanceMode: boolean;
+  readOnlyMode: boolean;
+  requireSignatures: boolean;
+  doubleValidationReceptions: boolean;
+  sessionTimeoutMinutes: number;
+  maxLoginAttempts: number;
+  allowOfflineMode: boolean;
+  lastLockdownDate?: string;
+  lockdownReason?: string;
+  masterPinCode: string;
+}
+
+export interface AuditLog {
+  id: string;
+  timestamp: string;
+  user: string;
+  action: string;
+  module: string;
+  details: string;
+  status: 'Succès' | 'Échec' | 'Alerte' | 'Sécurité';
+  ipAddress?: string;
+}
