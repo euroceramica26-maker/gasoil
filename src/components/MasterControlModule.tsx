@@ -33,18 +33,49 @@ import {
   Users,
   ShieldCheck,
   Fuel,
-  Info
+  Info,
+  LayoutDashboard,
+  Truck,
+  Gauge,
+  Wrench,
+  ArrowDownToLine,
+  UserCheck,
+  Shield,
+  BadgeCheck,
+  ExternalLink,
+  ChevronRight
 } from 'lucide-react';
-import { Subscription, SubscriptionPlan, SecurityConfig, AuditLog } from '../types';
+import { 
+  Subscription, 
+  SubscriptionPlan, 
+  SecurityConfig, 
+  AuditLog, 
+  User, 
+  UserPermissions, 
+  UserMenuPermissions, 
+  UserOptionPermissions 
+} from '../types';
 import { generate36CharLicenseKey, validateLicenseKeyFormat, getDaysRemaining } from '../lib/licenseUtils';
+import { 
+  createClientAdminUser, 
+  CLIENT_LICENSE_PRESETS, 
+  getDefaultPermissionsForClientAdmin, 
+  FULL_PERMISSIONS, 
+  ensureUserPermissions 
+} from '../lib/userPermissions';
+
+import { ConfirmModal } from './ConfirmModal';
 
 interface MasterControlModuleProps {
   subscriptions: Subscription[];
   activeLicenseKey: string;
   securityConfig: SecurityConfig;
   auditLogs: AuditLog[];
-  onAddSubscription: (sub: Subscription) => void;
-  onUpdateSubscription: (id: string, updated: Partial<Subscription>) => void;
+  users?: User[];
+  onAddUser?: (user: User) => void;
+  onUpdateUser?: (user: User) => void;
+  onAddSubscription: (sub: Subscription, adminUser?: User) => void;
+  onUpdateSubscription: (id: string, updated: Partial<Subscription>, updatedUser?: Partial<User>) => void;
   onDeleteSubscription: (id: string) => void;
   onActivateLicenseKey: (key: string) => void;
   onUpdateSecurityConfig: (config: Partial<SecurityConfig>) => void;
@@ -52,13 +83,44 @@ interface MasterControlModuleProps {
   onExportBackup: () => void;
   onImportBackup: (file: File) => void;
   onOpenActivationModal: () => void;
+  onResetSystem?: () => void;
 }
+
+export const LICENSE_MENUS_CONFIG: { key: keyof UserMenuPermissions; label: string; icon: any; desc: string; danger?: boolean }[] = [
+  { key: 'dashboard', label: 'Tableau de Bord', icon: LayoutDashboard, desc: 'Indicateurs clés, métrologie et synthèses' },
+  { key: 'entries', label: 'Entrées / Réceptions Carburant', icon: Fuel, desc: 'Bons de livraison citernes et fournisseurs' },
+  { key: 'dispenses', label: 'Distributions & Pleins', icon: Gauge, desc: 'Sorties volucompteur avec signature' },
+  { key: 'citernes', label: 'Citernes & Niveaux de Stock', icon: HardDrive, desc: 'Visualisation 3D, jauges et creux' },
+  { key: 'vehicles', label: 'Parc Véhicules & Engins', icon: Truck, desc: 'Suivi consommation L/100km et L/h' },
+  { key: 'gestion', label: 'Hub Gestion Générale', icon: Sliders, desc: 'Centralisation des réglages exploitation' },
+  { key: 'fournisseurs', label: 'Fournisseurs Hydrocarbures', icon: Building, desc: 'Répertoire distributeurs (Afriquia, Total...)' },
+  { key: 'users', label: 'Équipe & Utilisateurs Client', icon: Users, desc: 'Gestion des chauffeurs et agents' },
+  { key: 'repairs', label: 'Maintenance & Volucompteurs', icon: Wrench, desc: 'Suivi métrologique et étalonnages' },
+  { key: 'alerts', label: 'Alertes & Surconsommations', icon: AlertTriangle, desc: 'Détection des anomalies et fuites' },
+  { key: 'architecture', label: 'Architecture Système', icon: FileText, desc: 'Documentation technique' },
+  { key: 'controle_total', label: 'Contrôle Total & Vente Licences', icon: KeyRound, desc: 'Réservé Super Admin OuaradTech', danger: true }
+];
+
+export const LICENSE_OPTIONS_CONFIG: { key: keyof UserOptionPermissions; label: string; icon: any; desc: string; danger?: boolean }[] = [
+  { key: 'canAddEntries', label: 'Saisie des Réceptions Gasoil', icon: Plus, desc: 'Enregistrer des entrées camions citernes' },
+  { key: 'canAddDispenses', label: 'Distribution & Pleins Véhicules', icon: Fuel, desc: 'Délivrer du carburant aux chauffeurs' },
+  { key: 'canExportReports', label: 'Exportation des Rapports (Excel/PDF)', icon: ArrowDownToLine, desc: 'Téléchargement états et bilans' },
+  { key: 'canPrintReceipts', label: 'Impression Tickets & Bons de Plein', icon: Printer, desc: 'Impression tickets de délivrance' },
+  { key: 'canManageCiternes', label: 'Gestion & Jaugeage Citernes', icon: HardDrive, desc: 'Paramétrage capacités et seuils' },
+  { key: 'canManageVehicles', label: 'Gestion du Parc Engins & Flotte', icon: Truck, desc: 'Créer, modifier engins et compteurs' },
+  { key: 'canManageUsers', label: 'Gestion des Utilisateurs Client', icon: Users, desc: 'Créer chauffeurs et opérateurs' },
+  { key: 'canManageSubscriptions', label: 'Gestion des Licences & Vente', icon: KeyRound, desc: 'Réservé Super Admin OuaradTech', danger: true },
+  { key: 'canEmergencyLockdown', label: 'Verrouillage d Urgence (Kill Switch)', icon: ShieldAlert, desc: 'Réservé Super Admin OuaradTech', danger: true }
+];
 
 export const MasterControlModule: React.FC<MasterControlModuleProps> = ({
   subscriptions,
   activeLicenseKey,
   securityConfig,
   auditLogs,
+  users = [],
+  onAddUser,
+  onUpdateUser,
   onAddSubscription,
   onUpdateSubscription,
   onDeleteSubscription,
@@ -67,7 +129,8 @@ export const MasterControlModule: React.FC<MasterControlModuleProps> = ({
   onToggleEmergencyLockdown,
   onExportBackup,
   onImportBackup,
-  onOpenActivationModal
+  onOpenActivationModal,
+  onResetSystem
 }) => {
   const [activeTab, setActiveTab] = useState<'abonnements' | 'securite' | 'backend'>('abonnements');
   
@@ -75,6 +138,10 @@ export const MasterControlModule: React.FC<MasterControlModuleProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [planFilter, setPlanFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  
+  // Modals for deletion and system reset
+  const [subToDelete, setSubToDelete] = useState<Subscription | null>(null);
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   
   // New Subscription Form State
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -91,9 +158,64 @@ export const MasterControlModule: React.FC<MasterControlModuleProps> = ({
   const [newLicenseKey, setNewLicenseKey] = useState(() => generate36CharLicenseKey(true, 'HGMA'));
   const [newNotes, setNewNotes] = useState('');
   
+  // Dedicated Client Admin Form State
+  const [createAdminForClient, setCreateAdminForClient] = useState(true);
+  const [newAdminLogin, setNewAdminLogin] = useState('');
+  const [newAdminPassword, setNewAdminPassword] = useState('');
+  const [newAdminNom, setNewAdminNom] = useState('');
+  const [newAdminPrenom, setNewAdminPrenom] = useState('Admin');
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [newAdminTelephone, setNewAdminTelephone] = useState('+212 6 ');
+  const [showNewAdminPassword, setShowNewAdminPassword] = useState(false);
+  const [newLicensePermissions, setNewLicensePermissions] = useState<UserPermissions>(() => 
+    JSON.parse(JSON.stringify(CLIENT_LICENSE_PRESETS.complet.permissions))
+  );
+
+  // Modal: Edit Client Admin & License Authorizations for existing subscription
+  const [editingClientAdminSub, setEditingClientAdminSub] = useState<Subscription | null>(null);
+  const [editAdminForm, setEditAdminForm] = useState<{
+    id?: string;
+    login: string;
+    motDePasse: string;
+    nom: string;
+    prenom: string;
+    email: string;
+    telephone: string;
+    statut: 'Actif' | 'Inactif' | 'Suspendu';
+    permissions: UserPermissions;
+  } | null>(null);
+  const [showEditPassword, setShowEditPassword] = useState(false);
+  const [adminSuccessToast, setAdminSuccessToast] = useState<string | null>(null);
+
+  // Auto-generate login & password suggestions when entreprise or client name changes
+  useEffect(() => {
+    if (newEntreprise.trim()) {
+      const cleanSlug = newEntreprise
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]/g, '')
+        .slice(0, 8);
+      
+      const suggestedLogin = `admin_${cleanSlug || 'client'}`;
+      const suggestedPassword = `${cleanSlug ? cleanSlug.charAt(0).toUpperCase() + cleanSlug.slice(1) : 'Client'}2026@`;
+      
+      setNewAdminLogin(suggestedLogin);
+      setNewAdminPassword(suggestedPassword);
+      if (newClientName.trim()) {
+        setNewAdminNom(newClientName.trim());
+      }
+      setNewAdminEmail(`${suggestedLogin}@${cleanSlug || 'client'}.ma`);
+      if (newTelephone.trim() && newTelephone.trim() !== '+212 6 ') {
+        setNewAdminTelephone(newTelephone.trim());
+      }
+    }
+  }, [newEntreprise, newClientName, newTelephone]);
+
   // Copied feedback states
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [visibleKeys, setVisibleKeys] = useState<{ [id: string]: boolean }>({});
+  const [visiblePasswords, setVisiblePasswords] = useState<{ [id: string]: boolean }>({});
   
   // Lockdown modal state
   const [isLockdownModalOpen, setIsLockdownModalOpen] = useState(false);
@@ -163,7 +285,11 @@ export const MasterControlModule: React.FC<MasterControlModuleProps> = ({
     setVisibleKeys(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  // Submit new subscription
+  const togglePasswordVisibility = (id: string) => {
+    setVisiblePasswords(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  // Submit new subscription with dedicated client admin and license permissions
   const handleSubmitNewSubscription = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEntreprise.trim()) return;
@@ -172,8 +298,32 @@ export const MasterControlModule: React.FC<MasterControlModuleProps> = ({
     const expiration = new Date();
     expiration.setDate(today.getDate() + newDurationDays);
 
+    const subId = `SUB-${Date.now().toString().slice(-6)}`;
+
+    // Création de l'utilisateur Admin dédié au client si sélectionné
+    let adminUser: User | undefined;
+    if (createAdminForClient) {
+      adminUser = createClientAdminUser(
+        {
+          id: subId,
+          entreprise: newEntreprise.trim(),
+          clientName: newClientName.trim() || 'Responsable Dépôt',
+          telephone: newTelephone.trim()
+        },
+        {
+          login: newAdminLogin.trim(),
+          motDePasse: newAdminPassword.trim(),
+          nom: newAdminNom.trim() || newClientName.trim() || newEntreprise.trim(),
+          prenom: newAdminPrenom.trim() || 'Admin',
+          email: newAdminEmail.trim() || `${newAdminLogin.trim()}@${newEntreprise.trim().toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8)}.ma`,
+          telephone: newAdminTelephone.trim() || newTelephone.trim(),
+          permissions: newLicensePermissions
+        }
+      );
+    }
+
     const sub: Subscription = {
-      id: `SUB-${Date.now().toString().slice(-6)}`,
+      id: subId,
       licenseKey: newLicenseKey.trim(),
       clientName: newClientName.trim() || 'Responsable Dépôt',
       entreprise: newEntreprise.trim(),
@@ -188,10 +338,24 @@ export const MasterControlModule: React.FC<MasterControlModuleProps> = ({
       maxVehicules: Number(newMaxVehicules),
       maxCiternes: Number(newMaxCiternes),
       notes: newNotes.trim(),
-      cleActilee: false
+      cleActilee: false,
+      clientAdminId: adminUser?.id,
+      clientAdminLogin: adminUser?.login,
+      clientAdminPassword: adminUser?.motDePasse,
+      clientAdminNom: adminUser ? `${adminUser.prenom} ${adminUser.nom}` : undefined,
+      clientAdminEmail: adminUser?.email,
+      clientAdminTelephone: adminUser?.telephone,
+      licensePermissions: newLicensePermissions
     };
 
-    onAddSubscription(sub);
+    onAddSubscription(sub, adminUser);
+    if (adminUser && onAddUser) {
+      onAddUser(adminUser);
+    }
+
+    setAdminSuccessToast(`Client ${newEntreprise.trim()} créé avec succès ! Administrateur dédié (${adminUser?.login || 'aucun'}) généré avec ses droits de licence.`);
+    setTimeout(() => setAdminSuccessToast(null), 5000);
+
     setIsFormOpen(false);
     
     // Reset form
@@ -199,6 +363,113 @@ export const MasterControlModule: React.FC<MasterControlModuleProps> = ({
     setNewClientName('');
     setNewNotes('');
     setNewLicenseKey(generate36CharLicenseKey(true, 'HGMA'));
+    setNewAdminLogin('');
+    setNewAdminPassword('');
+    setNewAdminNom('');
+  };
+
+  // Open modal to configure client admin and license permissions for an existing subscription
+  const handleOpenEditAdminModal = (sub: Subscription) => {
+    const existingUser = users.find(u => u.clientId === sub.id || u.id === sub.clientAdminId || u.login === sub.clientAdminLogin);
+    
+    const permissions = sub.licensePermissions || 
+      existingUser?.permissions || 
+      getDefaultPermissionsForClientAdmin();
+
+    const cleanSlug = sub.entreprise
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '')
+      .slice(0, 8);
+
+    setEditAdminForm({
+      id: existingUser?.id || sub.clientAdminId || `usr-admin-${sub.id.toLowerCase()}`,
+      login: existingUser?.login || sub.clientAdminLogin || `admin_${cleanSlug || 'client'}`,
+      motDePasse: existingUser?.motDePasse || sub.clientAdminPassword || `Client${cleanSlug.toUpperCase()}2026@`,
+      nom: existingUser?.nom || sub.clientAdminNom || sub.clientName || sub.entreprise,
+      prenom: existingUser?.prenom || 'Admin',
+      email: existingUser?.email || sub.clientAdminEmail || `${existingUser?.login || sub.clientAdminLogin || 'admin'}@${cleanSlug || 'client'}.ma`,
+      telephone: existingUser?.telephone || sub.clientAdminTelephone || sub.telephone,
+      statut: (existingUser?.statut as any) || 'Actif',
+      permissions: JSON.parse(JSON.stringify(permissions))
+    });
+    setShowEditPassword(false);
+    setEditingClientAdminSub(sub);
+  };
+
+  // Save client admin & license authorizations
+  const handleSaveClientAdminLicense = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingClientAdminSub || !editAdminForm) return;
+
+    const sub = editingClientAdminSub;
+    const adminUser = createClientAdminUser(sub, {
+      login: editAdminForm.login.trim(),
+      motDePasse: editAdminForm.motDePasse.trim(),
+      nom: editAdminForm.nom.trim(),
+      prenom: editAdminForm.prenom.trim(),
+      email: editAdminForm.email.trim(),
+      telephone: editAdminForm.telephone.trim(),
+      permissions: editAdminForm.permissions
+    });
+
+    const updatedSub: Partial<Subscription> = {
+      clientAdminId: adminUser.id,
+      clientAdminLogin: adminUser.login,
+      clientAdminPassword: adminUser.motDePasse,
+      clientAdminNom: `${adminUser.prenom} ${adminUser.nom}`,
+      clientAdminEmail: adminUser.email,
+      clientAdminTelephone: adminUser.telephone,
+      licensePermissions: editAdminForm.permissions
+    };
+
+    onUpdateSubscription(sub.id, updatedSub, adminUser);
+
+    if (onUpdateUser && users.some(u => u.id === adminUser.id || u.login === adminUser.login || u.clientId === sub.id)) {
+      const match = users.find(u => u.id === adminUser.id || u.login === adminUser.login || u.clientId === sub.id);
+      if (match) {
+        onUpdateUser({ ...match, ...adminUser });
+      } else if (onAddUser) {
+        onAddUser(adminUser);
+      }
+    } else if (onAddUser) {
+      onAddUser(adminUser);
+    }
+
+    setAdminSuccessToast(`Habilitations de licence et compte administrateur mis à jour pour ${sub.entreprise} !`);
+    setTimeout(() => setAdminSuccessToast(null), 4000);
+    setEditingClientAdminSub(null);
+  };
+
+  // Copy full client credentials card
+  const handleCopyClientCredentials = (sub: Subscription) => {
+    const existingUser = users.find(u => u.clientId === sub.id || u.id === sub.clientAdminId || u.login === sub.clientAdminLogin);
+    const login = existingUser?.login || sub.clientAdminLogin || `admin_${sub.entreprise.slice(0, 6).toLowerCase()}`;
+    const password = existingUser?.motDePasse || sub.clientAdminPassword || 'Client2026@';
+    const perms = sub.licensePermissions || existingUser?.permissions || getDefaultPermissionsForClientAdmin();
+
+    const activeMenus = Object.entries(perms.menus).filter(([_, v]) => v).length;
+    const activeOptions = Object.entries(perms.options).filter(([_, v]) => v).length;
+
+    const text = `================================================
+HYDRO-GASOIL PRO — ACCÈS ADMINISTRATEUR CLIENT
+================================================
+🏢 Entreprise : ${sub.entreprise}
+📍 Ville : ${sub.ville}
+🔑 Clé de Licence : ${sub.licenseKey} (36 caractères)
+📋 Formule : ${sub.plan} (Expire le ${sub.dateExpiration})
+📊 Droits de Licence : ${activeMenus} Menus autorisés • ${activeOptions} Droits opérationnels
+
+--- IDENTIFIANTS DE CONNEXION DU CLIENT ---
+👤 Rôle : Administrateur Client Dédié
+🆔 Identifiant / Login : ${login}
+🔒 Mot de Passe : ${password}
+================================================`;
+
+    navigator.clipboard.writeText(text);
+    setAdminSuccessToast(`Identifiants d'accès complets de ${sub.entreprise} copiés dans le presse-papier !`);
+    setTimeout(() => setAdminSuccessToast(null), 3500);
   };
 
   // Emergency lockdown trigger
@@ -362,6 +633,18 @@ export const MasterControlModule: React.FC<MasterControlModuleProps> = ({
               )}
             </button>
 
+            {onResetSystem && (
+              <button
+                type="button"
+                onClick={() => setIsResetConfirmOpen(true)}
+                className="px-3.5 py-2 bg-red-950/70 hover:bg-red-900 border border-red-500/50 hover:border-red-400 text-red-300 hover:text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-red-950/40 transition cursor-pointer"
+                title="Supprimer toutes les données et conserver uniquement le Super Admin ouaradtech"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                <span>Réinitialiser Tout (OuaradTech Seul)</span>
+              </button>
+            )}
+
             <button
               onClick={() => {
                 handleGenerateKey();
@@ -456,6 +739,23 @@ export const MasterControlModule: React.FC<MasterControlModuleProps> = ({
       {/* ========================================================= */}
       {activeTab === 'abonnements' && (
         <div className="space-y-6">
+
+          {/* Success Toast */}
+          {adminSuccessToast && (
+            <div className="p-3.5 bg-emerald-950/90 border border-emerald-500/50 rounded-xl flex items-center justify-between gap-3 text-emerald-200 text-xs shadow-lg animate-in fade-in">
+              <div className="flex items-center gap-2.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span className="font-semibold">{adminSuccessToast}</span>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setAdminSuccessToast(null)}
+                className="text-emerald-400 hover:text-white cursor-pointer"
+              >
+                <XCircle className="w-4 h-4" />
+              </button>
+            </div>
+          )}
           
           {/* KPI Summary Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -714,6 +1014,270 @@ export const MasterControlModule: React.FC<MasterControlModuleProps> = ({
                     />
                   </div>
 
+                  {/* SECTION : UTILISATEUR ADMIN SPÉCIALEMENT DÉDIÉ AU CLIENT & AUTORISATIONS DE LICENCE */}
+                  <div className="pt-2 border-t border-slate-800 space-y-3">
+                    <div className="p-3.5 bg-gradient-to-r from-sky-950/40 via-slate-950 to-indigo-950/40 border border-sky-500/40 rounded-xl space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-400 border border-sky-500/40 flex items-center justify-center">
+                            <UserCheck className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="font-extrabold text-white text-xs tracking-wide flex items-center gap-2">
+                              <span>Utilisateur Administrateur Dédié au Client</span>
+                              <span className="text-[10px] bg-sky-500/20 text-sky-300 px-1.5 py-0.2 rounded font-bold border border-sky-500/30">
+                                Requis
+                              </span>
+                            </h4>
+                            <p className="text-[11px] text-slate-400">
+                              Créer le compte administrateur propre à cette entreprise pour l'utilisation de sa licence
+                            </p>
+                          </div>
+                        </div>
+
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={createAdminForClient}
+                            onChange={(e) => setCreateAdminForClient(e.target.checked)}
+                            className="w-4 h-4 rounded text-sky-500 focus:ring-0 bg-slate-900 border-slate-700 cursor-pointer"
+                          />
+                          <span className="text-[11px] font-bold text-slate-300">Activer compte</span>
+                        </label>
+                      </div>
+
+                      {createAdminForClient && (
+                        <div className="space-y-3 pt-2 border-t border-slate-800/80">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-slate-400 block mb-1 font-semibold text-[11px]">
+                                Nom & Prénom Administrateur *
+                              </label>
+                              <input
+                                type="text"
+                                required={createAdminForClient}
+                                value={newAdminNom}
+                                onChange={(e) => setNewAdminNom(e.target.value)}
+                                placeholder="Ex: Karim El Amrani"
+                                className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 focus:outline-none focus:border-sky-500 text-xs font-medium"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-slate-400 block mb-1 font-semibold text-[11px]">
+                                Identifiant / Login de Connexion *
+                              </label>
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  required={createAdminForClient}
+                                  value={newAdminLogin}
+                                  onChange={(e) => setNewAdminLogin(e.target.value.toLowerCase().replace(/\s+/g, ''))}
+                                  placeholder="admin_nomclient"
+                                  className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-sky-300 font-mono focus:outline-none focus:border-sky-500 text-xs font-bold"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="text-slate-400 font-semibold text-[11px]">
+                                  Mot de Passe Sécurisé *
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789@#$!';
+                                    let pwd = '';
+                                    for (let i = 0; i < 10; i++) pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+                                    setNewAdminPassword(pwd);
+                                  }}
+                                  className="text-[10px] text-amber-400 hover:text-amber-300 underline cursor-pointer"
+                                >
+                                  Générer
+                                </button>
+                              </div>
+                              <div className="relative">
+                                <input
+                                  type={showNewAdminPassword ? 'text' : 'password'}
+                                  required={createAdminForClient}
+                                  value={newAdminPassword}
+                                  onChange={(e) => setNewAdminPassword(e.target.value)}
+                                  className="w-full pl-3 pr-8 py-2 bg-slate-900 border border-slate-800 rounded-xl text-amber-300 font-mono text-xs font-bold focus:outline-none focus:border-amber-500"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setShowNewAdminPassword(!showNewAdminPassword)}
+                                  className="absolute right-2.5 top-2.5 text-slate-500 hover:text-slate-300 cursor-pointer"
+                                >
+                                  {showNewAdminPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                </button>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="text-slate-400 block mb-1 font-semibold text-[11px]">
+                                Email Contact
+                              </label>
+                              <input
+                                type="email"
+                                value={newAdminEmail}
+                                onChange={(e) => setNewAdminEmail(e.target.value)}
+                                placeholder="admin@entreprise.ma"
+                                className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 focus:outline-none focus:border-sky-500 text-xs"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-slate-400 block mb-1 font-semibold text-[11px]">
+                                Téléphone Direct
+                              </label>
+                              <input
+                                type="text"
+                                value={newAdminTelephone}
+                                onChange={(e) => setNewAdminTelephone(e.target.value)}
+                                className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 font-mono text-xs focus:outline-none focus:border-sky-500"
+                              />
+                            </div>
+                          </div>
+
+                          {/* AUTORISATIONS DE LICENCE ACCORDÉES PAR LE SUPER ADMIN */}
+                          <div className="mt-4 pt-3 border-t border-slate-800 space-y-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                              <div>
+                                <span className="font-extrabold text-amber-300 text-xs flex items-center gap-1.5 uppercase tracking-wider">
+                                  <Sliders className="w-3.5 h-3.5 text-amber-400" />
+                                  Périmètre & Autorisations de Licence accordés
+                                </span>
+                                <span className="text-[10px] text-slate-400">
+                                  Déterminez précisément les menus et droits utilisables par ce client
+                                </span>
+                              </div>
+
+                              {/* Presets */}
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <button
+                                  type="button"
+                                  onClick={() => setNewLicensePermissions(JSON.parse(JSON.stringify(CLIENT_LICENSE_PRESETS.standard.permissions)))}
+                                  className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded text-[10px] font-semibold transition cursor-pointer"
+                                >
+                                  Standard
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setNewLicensePermissions(JSON.parse(JSON.stringify(CLIENT_LICENSE_PRESETS.complet.permissions)))}
+                                  className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded text-[10px] font-bold transition cursor-pointer"
+                                >
+                                  Intégral Pro
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setNewLicensePermissions(JSON.parse(JSON.stringify(CLIENT_LICENSE_PRESETS.consultation.permissions)))}
+                                  className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded text-[10px] font-semibold transition cursor-pointer"
+                                >
+                                  Consultation
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* 12 Menus Grid */}
+                            <div className="space-y-1.5">
+                              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                                1. Menus Autorisés dans la Licence
+                              </span>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                {LICENSE_MENUS_CONFIG.map((menu) => {
+                                  const isEnabled = newLicensePermissions.menus[menu.key];
+                                  const Icon = menu.icon;
+                                  return (
+                                    <label
+                                      key={menu.key}
+                                      className={`p-2 rounded-xl border flex items-center justify-between gap-2 cursor-pointer transition select-none ${
+                                        isEnabled 
+                                          ? 'bg-slate-900 border-amber-500/40 shadow-sm' 
+                                          : 'bg-slate-950/60 border-slate-800 opacity-60'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2 truncate">
+                                        <Icon className={`w-3.5 h-3.5 shrink-0 ${isEnabled ? 'text-amber-400' : 'text-slate-500'}`} />
+                                        <div className="truncate text-left leading-tight">
+                                          <span className="font-semibold text-[11px] text-slate-200 block truncate">{menu.label}</span>
+                                          {menu.danger && <span className="text-[9px] text-red-400 block font-bold">Super Admin</span>}
+                                        </div>
+                                      </div>
+                                      <input
+                                        type="checkbox"
+                                        checked={isEnabled}
+                                        onChange={(e) => {
+                                          setNewLicensePermissions(prev => ({
+                                            ...prev,
+                                            menus: {
+                                              ...prev.menus,
+                                              [menu.key]: e.target.checked
+                                            }
+                                          }));
+                                        }}
+                                        className="w-3.5 h-3.5 rounded text-amber-500 focus:ring-0 bg-slate-950 border-slate-700 cursor-pointer"
+                                      />
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            {/* 9 Options Grid */}
+                            <div className="space-y-1.5 pt-2">
+                              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                                2. Droits Opérationnels de la Licence
+                              </span>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {LICENSE_OPTIONS_CONFIG.map((opt) => {
+                                  const isEnabled = newLicensePermissions.options[opt.key];
+                                  const Icon = opt.icon;
+                                  return (
+                                    <label
+                                      key={opt.key}
+                                      className={`p-2 rounded-xl border flex items-center justify-between gap-2 cursor-pointer transition select-none ${
+                                        isEnabled 
+                                          ? 'bg-slate-900 border-sky-500/40 shadow-sm' 
+                                          : 'bg-slate-950/60 border-slate-800 opacity-60'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2 truncate">
+                                        <Icon className={`w-3.5 h-3.5 shrink-0 ${isEnabled ? 'text-sky-400' : 'text-slate-500'}`} />
+                                        <div className="truncate text-left leading-tight">
+                                          <span className="font-semibold text-[11px] text-slate-200 block truncate">{opt.label}</span>
+                                          <span className="text-[10px] text-slate-400 block truncate">{opt.desc}</span>
+                                        </div>
+                                      </div>
+                                      <input
+                                        type="checkbox"
+                                        checked={isEnabled}
+                                        onChange={(e) => {
+                                          setNewLicensePermissions(prev => ({
+                                            ...prev,
+                                            options: {
+                                              ...prev.options,
+                                              [opt.key]: e.target.checked
+                                            }
+                                          }));
+                                        }}
+                                        className="w-3.5 h-3.5 rounded text-sky-500 focus:ring-0 bg-slate-950 border-slate-700 cursor-pointer"
+                                      />
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Buttons */}
                   <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-3">
                     <button
@@ -778,6 +1342,18 @@ export const MasterControlModule: React.FC<MasterControlModuleProps> = ({
                   <option value="Expiré">Expiré</option>
                   <option value="Suspendu">Suspendu</option>
                 </select>
+
+                {onResetSystem && (
+                  <button
+                    type="button"
+                    onClick={() => setIsResetConfirmOpen(true)}
+                    className="px-3 py-2 bg-red-950/60 hover:bg-red-900 border border-red-500/40 text-red-300 hover:text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shrink-0"
+                    title="Effacer tous les abonnements et réinitialiser tout le système"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                    <span>Réinitialiser Tout</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -788,6 +1364,7 @@ export const MasterControlModule: React.FC<MasterControlModuleProps> = ({
                   <tr>
                     <th className="p-3.5">Code de Licence (36 Caractères)</th>
                     <th className="p-3.5">Entreprise & Contact</th>
+                    <th className="p-3.5">Admin Dédié Client & Droits</th>
                     <th className="p-3.5">Ville</th>
                     <th className="p-3.5">Formule & Montant</th>
                     <th className="p-3.5">Période & Expiration</th>
@@ -800,6 +1377,16 @@ export const MasterControlModule: React.FC<MasterControlModuleProps> = ({
                     const daysLeft = getDaysRemaining(sub.dateExpiration);
                     const isKeyVisible = visibleKeys[sub.id];
                     const isInstanceActive = sub.licenseKey === activeLicenseKey;
+
+                    const clientAdmin = users.find(u => u.clientId === sub.id || u.id === sub.clientAdminId || (sub.clientAdminLogin && u.login === sub.clientAdminLogin));
+                    const adminLogin = clientAdmin?.login || sub.clientAdminLogin;
+                    const adminNom = clientAdmin ? `${clientAdmin.prenom} ${clientAdmin.nom}` : (sub.clientAdminNom || sub.clientName);
+                    const adminPassword = clientAdmin?.motDePasse || sub.clientAdminPassword || '••••••••';
+                    const isPwdVisible = visiblePasswords[sub.id];
+
+                    const perms = sub.licensePermissions || clientAdmin?.permissions || getDefaultPermissionsForClientAdmin();
+                    const activeMenusCount = Object.values(perms.menus).filter(Boolean).length;
+                    const activeOptionsCount = Object.values(perms.options).filter(Boolean).length;
 
                     return (
                       <tr 
@@ -820,14 +1407,14 @@ export const MasterControlModule: React.FC<MasterControlModuleProps> = ({
                               </span>
                               <button
                                 onClick={() => toggleKeyVisibility(sub.id)}
-                                className="p-1 text-slate-500 hover:text-slate-300 transition"
+                                className="p-1 text-slate-500 hover:text-slate-300 transition cursor-pointer"
                                 title={isKeyVisible ? 'Masquer' : 'Afficher'}
                               >
                                 {isKeyVisible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                               </button>
                               <button
                                 onClick={() => handleCopyKey(sub.licenseKey)}
-                                className="p-1 text-slate-500 hover:text-amber-400 transition"
+                                className="p-1 text-slate-500 hover:text-amber-400 transition cursor-pointer"
                                 title="Copier le code à 36 caractères"
                               >
                                 {copiedKey === sub.licenseKey ? (
@@ -854,6 +1441,71 @@ export const MasterControlModule: React.FC<MasterControlModuleProps> = ({
                               {sub.clientName} ({sub.contact})
                             </span>
                           </div>
+                        </td>
+
+                        {/* Dedicated Client Admin & License Permissions */}
+                        <td className="p-3.5">
+                          {adminLogin ? (
+                            <div className="space-y-1.5 min-w-[190px]">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="inline-flex items-center gap-1 font-bold text-slate-100 bg-sky-950/80 border border-sky-500/40 text-[11px] px-2 py-0.5 rounded-lg">
+                                  <UserCheck className="w-3 h-3 text-sky-400" />
+                                  <span className="truncate max-w-[120px]">{adminNom}</span>
+                                </span>
+                                <span className="font-mono text-[10px] text-sky-300 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 font-bold">
+                                  @{adminLogin}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2 text-[10px]">
+                                <span className="text-slate-400 font-mono flex items-center gap-1">
+                                  <span>mdp:</span>
+                                  <span className="text-amber-300 font-semibold font-mono">
+                                    {isPwdVisible ? adminPassword : '••••••••'}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => togglePasswordVisibility(sub.id)}
+                                    className="text-slate-500 hover:text-slate-300 transition cursor-pointer"
+                                    title={isPwdVisible ? 'Masquer' : 'Afficher'}
+                                  >
+                                    {isPwdVisible ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                                  </button>
+                                </span>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyClientCredentials(sub)}
+                                  className="text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-0.5 hover:underline cursor-pointer"
+                                  title="Copier identifiants complets"
+                                >
+                                  <Copy className="w-2.5 h-2.5" />
+                                  <span>Copier</span>
+                                </button>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 pt-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditAdminModal(sub)}
+                                  className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-amber-200 border border-amber-500/30 rounded text-[10px] font-medium flex items-center gap-1 transition cursor-pointer"
+                                  title="Modifier l'admin client et les autorisations de licence"
+                                >
+                                  <Sliders className="w-2.5 h-2.5" />
+                                  <span>{activeMenusCount} Menus • {activeOptionsCount} Droits</span>
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditAdminModal(sub)}
+                              className="px-2.5 py-1.5 bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/40 rounded-xl text-[10px] font-bold flex items-center gap-1.5 transition cursor-pointer"
+                            >
+                              <Plus className="w-3 h-3 stroke-[2.5]" />
+                              <span>Créer Admin Client</span>
+                            </button>
+                          )}
                         </td>
 
                         {/* Ville */}
@@ -910,6 +1562,15 @@ export const MasterControlModule: React.FC<MasterControlModuleProps> = ({
                         <td className="p-3.5 text-right">
                           <div className="flex items-center justify-end gap-1.5 flex-wrap">
                             
+                            {/* Manage Admin & License Button */}
+                            <button
+                              onClick={() => handleOpenEditAdminModal(sub)}
+                              className="p-1.5 text-slate-400 hover:text-sky-400 transition cursor-pointer"
+                              title="Gérer l'administrateur client & autorisations de licence"
+                            >
+                              <UserCheck className="w-3.5 h-3.5" />
+                            </button>
+
                             {/* Activate button if not active */}
                             {!isInstanceActive && (
                               <button
@@ -933,7 +1594,7 @@ export const MasterControlModule: React.FC<MasterControlModuleProps> = ({
                             {/* Certificate preview */}
                             <button
                               onClick={() => setCertificateSub(sub)}
-                              className="p-1.5 text-slate-400 hover:text-amber-400 transition"
+                              className="p-1.5 text-slate-400 hover:text-amber-400 transition cursor-pointer"
                               title="Certificat Officiel / Bon d'Abonnement"
                             >
                               <FileText className="w-3.5 h-3.5" />
@@ -942,7 +1603,7 @@ export const MasterControlModule: React.FC<MasterControlModuleProps> = ({
                             {/* Suspend / Resume */}
                             <button
                               onClick={() => handleToggleSuspend(sub)}
-                              className={`p-1.5 transition ${
+                              className={`p-1.5 transition cursor-pointer ${
                                 sub.statut === 'Actif' 
                                   ? 'text-red-400 hover:text-red-300' 
                                   : 'text-emerald-400 hover:text-emerald-300'
@@ -954,13 +1615,14 @@ export const MasterControlModule: React.FC<MasterControlModuleProps> = ({
 
                             {/* Delete */}
                             <button
-                              onClick={() => {
-                                if (confirm(`Supprimer définitivement l'abonnement pour ${sub.entreprise} ?`)) {
-                                  onDeleteSubscription(sub.id);
-                                }
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setSubToDelete(sub);
                               }}
-                              className="p-1.5 text-slate-600 hover:text-red-400 transition"
-                              title="Supprimer"
+                              className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-950/50 rounded-lg transition cursor-pointer"
+                              title={`Supprimer définitivement l'abonnement pour ${sub.entreprise}`}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -971,7 +1633,7 @@ export const MasterControlModule: React.FC<MasterControlModuleProps> = ({
                   })}
                   {filteredSubscriptions.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="p-8 text-center text-slate-500">
+                      <td colSpan={8} className="p-8 text-center text-slate-500">
                         Aucun abonnement ne correspond à votre recherche.
                       </td>
                     </tr>
@@ -981,6 +1643,326 @@ export const MasterControlModule: React.FC<MasterControlModuleProps> = ({
             </div>
 
           </div>
+
+          {/* MODAL : GESTION DE L'ADMIN CLIENT & AUTORISATIONS DE LICENCE */}
+          {editingClientAdminSub && editAdminForm && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in">
+              <div className="w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
+                
+                {/* Header */}
+                <div className="p-5 bg-gradient-to-r from-sky-600 via-sky-500 to-indigo-600 text-slate-950 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-slate-950/20 rounded-xl">
+                      <UserCheck className="w-6 h-6 text-slate-950 stroke-[2.5]" />
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-base sm:text-lg tracking-tight font-industrial">
+                        Habilitations Licence & Administrateur Client
+                      </h3>
+                      <p className="text-xs font-semibold text-slate-950/85">
+                        {editingClientAdminSub.entreprise} • Licence {editingClientAdminSub.plan} ({editingClientAdminSub.ville})
+                      </p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setEditingClientAdminSub(null)}
+                    className="p-1.5 rounded-lg bg-slate-950/10 hover:bg-slate-950/20 transition cursor-pointer"
+                  >
+                    <XCircle className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Form */}
+                <form onSubmit={handleSaveClientAdminLicense} className="p-6 space-y-4 overflow-y-auto text-xs">
+                  
+                  {/* Client Info Banner */}
+                  <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div>
+                      <span className="text-slate-400 text-[11px] block">Clé de Licence 36 Caractères :</span>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="font-mono-num font-bold text-amber-300 text-xs">
+                          {editingClientAdminSub.licenseKey}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyKey(editingClientAdminSub.licenseKey)}
+                          className="text-slate-500 hover:text-amber-400 transition cursor-pointer"
+                          title="Copier la clé"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleCopyClientCredentials(editingClientAdminSub)}
+                        className="px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copier Fiche d'Accès Client</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Admin Account Fields */}
+                  <div className="p-4 bg-slate-950/70 border border-slate-800/80 rounded-xl space-y-3">
+                    <span className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                      <UserCheck className="w-3.5 h-3.5 text-sky-400" />
+                      Identifiants du Compte Administrateur Dédié
+                    </span>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-slate-400 block mb-1 font-semibold text-[11px]">Nom & Prénom</label>
+                        <input
+                          type="text"
+                          required
+                          value={editAdminForm.nom}
+                          onChange={(e) => setEditAdminForm({ ...editAdminForm, nom: e.target.value })}
+                          className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 text-xs font-medium focus:outline-none focus:border-sky-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-slate-400 block mb-1 font-semibold text-[11px]">Identifiant / Login de Connexion *</label>
+                        <input
+                          type="text"
+                          required
+                          value={editAdminForm.login}
+                          onChange={(e) => setEditAdminForm({ ...editAdminForm, login: e.target.value.toLowerCase().replace(/\s+/g, '') })}
+                          className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-sky-300 font-mono text-xs font-bold focus:outline-none focus:border-sky-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-slate-400 font-semibold text-[11px]">Mot de Passe *</label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789@#$!';
+                              let pwd = '';
+                              for (let i = 0; i < 10; i++) pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+                              setEditAdminForm({ ...editAdminForm, motDePasse: pwd });
+                            }}
+                            className="text-[10px] text-amber-400 hover:text-amber-300 underline cursor-pointer"
+                          >
+                            Générer
+                          </button>
+                        </div>
+                        <div className="relative">
+                          <input
+                            type={showEditPassword ? 'text' : 'password'}
+                            required
+                            value={editAdminForm.motDePasse}
+                            onChange={(e) => setEditAdminForm({ ...editAdminForm, motDePasse: e.target.value })}
+                            className="w-full pl-3 pr-8 py-2 bg-slate-900 border border-slate-800 rounded-xl text-amber-300 font-mono text-xs font-bold focus:outline-none focus:border-amber-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowEditPassword(!showEditPassword)}
+                            className="absolute right-2.5 top-2.5 text-slate-500 hover:text-slate-300 cursor-pointer"
+                          >
+                            {showEditPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-slate-400 block mb-1 font-semibold text-[11px]">Email</label>
+                        <input
+                          type="email"
+                          value={editAdminForm.email}
+                          onChange={(e) => setEditAdminForm({ ...editAdminForm, email: e.target.value })}
+                          className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-sky-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-slate-400 block mb-1 font-semibold text-[11px]">Téléphone</label>
+                        <input
+                          type="text"
+                          value={editAdminForm.telephone}
+                          onChange={(e) => setEditAdminForm({ ...editAdminForm, telephone: e.target.value })}
+                          className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 font-mono text-xs focus:outline-none focus:border-sky-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* License Permissions Section */}
+                  <div className="p-4 bg-slate-950/70 border border-slate-800/80 rounded-xl space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <span className="font-extrabold text-amber-300 text-xs flex items-center gap-1.5 uppercase tracking-wider">
+                          <Sliders className="w-3.5 h-3.5 text-amber-400" />
+                          Autorisations de Licence Accordées par le Super Admin
+                        </span>
+                        <p className="text-[11px] text-slate-400">
+                          Cochez les menus et options auxquels ce client a droit selon son contrat
+                        </p>
+                      </div>
+
+                      {/* Quick Preset Buttons */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => setEditAdminForm({
+                            ...editAdminForm,
+                            permissions: JSON.parse(JSON.stringify(CLIENT_LICENSE_PRESETS.standard.permissions))
+                          })}
+                          className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded text-[10px] font-semibold transition cursor-pointer"
+                        >
+                          Pack Standard
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditAdminForm({
+                            ...editAdminForm,
+                            permissions: JSON.parse(JSON.stringify(CLIENT_LICENSE_PRESETS.complet.permissions))
+                          })}
+                          className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded text-[10px] font-bold transition cursor-pointer"
+                        >
+                          Pack Intégral Pro
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditAdminForm({
+                            ...editAdminForm,
+                            permissions: JSON.parse(JSON.stringify(CLIENT_LICENSE_PRESETS.consultation.permissions))
+                          })}
+                          className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded text-[10px] font-semibold transition cursor-pointer"
+                        >
+                          Pack Consultation
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 12 Menus */}
+                    <div className="space-y-1.5 pt-2">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                        1. Menus de Navigation Autorisés
+                      </span>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {LICENSE_MENUS_CONFIG.map((menu) => {
+                          const isEnabled = editAdminForm.permissions.menus[menu.key];
+                          const Icon = menu.icon;
+                          return (
+                            <label
+                              key={menu.key}
+                              className={`p-2 rounded-xl border flex items-center justify-between gap-2 cursor-pointer transition select-none ${
+                                isEnabled 
+                                  ? 'bg-slate-900 border-amber-500/40 shadow-sm' 
+                                  : 'bg-slate-950/60 border-slate-800 opacity-60'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 truncate">
+                                <Icon className={`w-3.5 h-3.5 shrink-0 ${isEnabled ? 'text-amber-400' : 'text-slate-500'}`} />
+                                <div className="truncate text-left leading-tight">
+                                  <span className="font-semibold text-[11px] text-slate-200 block truncate">{menu.label}</span>
+                                  {menu.danger && <span className="text-[9px] text-red-400 block font-bold">Super Admin</span>}
+                                </div>
+                              </div>
+                              <input
+                                type="checkbox"
+                                checked={isEnabled}
+                                onChange={(e) => {
+                                  setEditAdminForm({
+                                    ...editAdminForm,
+                                    permissions: {
+                                      ...editAdminForm.permissions,
+                                      menus: {
+                                        ...editAdminForm.permissions.menus,
+                                        [menu.key]: e.target.checked
+                                      }
+                                    }
+                                  });
+                                }}
+                                className="w-3.5 h-3.5 rounded text-amber-500 focus:ring-0 bg-slate-950 border-slate-700 cursor-pointer"
+                              />
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* 9 Options */}
+                    <div className="space-y-1.5 pt-2">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                        2. Droits Opérationnels Métier
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {LICENSE_OPTIONS_CONFIG.map((opt) => {
+                          const isEnabled = editAdminForm.permissions.options[opt.key];
+                          const Icon = opt.icon;
+                          return (
+                            <label
+                              key={opt.key}
+                              className={`p-2 rounded-xl border flex items-center justify-between gap-2 cursor-pointer transition select-none ${
+                                isEnabled 
+                                  ? 'bg-slate-900 border-sky-500/40 shadow-sm' 
+                                  : 'bg-slate-950/60 border-slate-800 opacity-60'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 truncate">
+                                <Icon className={`w-3.5 h-3.5 shrink-0 ${isEnabled ? 'text-sky-400' : 'text-slate-500'}`} />
+                                <div className="truncate text-left leading-tight">
+                                  <span className="font-semibold text-[11px] text-slate-200 block truncate">{opt.label}</span>
+                                  <span className="text-[10px] text-slate-400 block truncate">{opt.desc}</span>
+                                </div>
+                              </div>
+                              <input
+                                type="checkbox"
+                                checked={isEnabled}
+                                onChange={(e) => {
+                                  setEditAdminForm({
+                                    ...editAdminForm,
+                                    permissions: {
+                                      ...editAdminForm.permissions,
+                                      options: {
+                                        ...editAdminForm.permissions.options,
+                                        [opt.key]: e.target.checked
+                                      }
+                                    }
+                                  });
+                                }}
+                                className="w-3.5 h-3.5 rounded text-sky-500 focus:ring-0 bg-slate-950 border-slate-700 cursor-pointer"
+                              />
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* Submit Buttons */}
+                  <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setEditingClientAdminSub(null)}
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-semibold transition cursor-pointer"
+                    >
+                      Fermer
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2.5 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-slate-950 font-bold rounded-xl flex items-center gap-2 shadow-lg shadow-sky-500/25 transition cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
+                      <span>Enregistrer les Habilitations & l'Admin Client</span>
+                    </button>
+                  </div>
+
+                </form>
+
+              </div>
+            </div>
+          )}
 
         </div>
       )}
@@ -1338,6 +2320,34 @@ export const MasterControlModule: React.FC<MasterControlModuleProps> = ({
               </label>
             </div>
 
+            {/* Reset Complet du Système */}
+            {onResetSystem && (
+              <div className="bg-slate-900 border border-red-500/30 rounded-2xl p-5 shadow-xl space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-red-500/10 text-red-400 rounded-xl border border-red-500/20">
+                    <Trash2 className="w-5 h-5 text-red-400" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-slate-100">Réinitialisation Complète du Système</h4>
+                    <p className="text-[11px] text-red-300">Efface toutes les données et laisse uniquement le compte Super Admin</p>
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-400">
+                  Cette action réinitialise le système à zéro : supprime tous les abonnements, citernes, véhicules, distributions et conserve exclusivement le compte Super Administrateur <strong>ouaradtech</strong>.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => setIsResetConfirmOpen(true)}
+                  className="w-full py-2.5 bg-red-600/20 hover:bg-red-600 text-red-200 hover:text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 border border-red-500/40 transition cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Réinitialiser Tout le Système (Super Admin Unique)</span>
+                </button>
+              </div>
+            )}
+
           </div>
 
         </div>
@@ -1535,6 +2545,49 @@ export const MasterControlModule: React.FC<MasterControlModuleProps> = ({
 
           </div>
         </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL GLOBAL 1: SUPPRESSION DÉFINITIVE D'UN ABONNEMENT */}
+      {/* ========================================================= */}
+      {subToDelete && (
+        <ConfirmModal
+          isOpen={true}
+          title={`Supprimer la Licence ${subToDelete.entreprise}`}
+          message={`Êtes-vous sûr de vouloir supprimer définitivement l'abonnement et la licence pour "${subToDelete.entreprise}" ?`}
+          detail={`Clé de licence 36 car. : ${subToDelete.licenseKey} • Plan : ${subToDelete.plan} • Ville : ${subToDelete.ville}`}
+          confirmLabel="Supprimer Définitivement"
+          onConfirm={() => {
+            const id = subToDelete.id;
+            const entreprise = subToDelete.entreprise;
+            const key = subToDelete.licenseKey;
+            onDeleteSubscription(id);
+            setAdminSuccessToast(`L'abonnement de ${entreprise} (${key}) a été supprimé avec succès.`);
+            setTimeout(() => setAdminSuccessToast(null), 4000);
+            setSubToDelete(null);
+          }}
+          onCancel={() => setSubToDelete(null)}
+        />
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL GLOBAL 2: RÉINITIALISATION TOTALE DU SYSTÈME */}
+      {/* ========================================================= */}
+      {isResetConfirmOpen && onResetSystem && (
+        <ConfirmModal
+          isOpen={true}
+          title="Réinitialisation Totale du Système"
+          message="Attention : Vous êtes sur le point d'effacer toutes les données de l'application (abonnements, citernes, véhicules, distributions, entrées et utilisateurs). Seul le compte Super Administrateur ouaradtech restera actif."
+          detail="Identifiant conservé : ouaradtech • Mot de passe : Ouaradtech26@ • Rôle : Super Administrateur"
+          confirmLabel="Oui, Réinitialiser Tout le Système"
+          onConfirm={() => {
+            onResetSystem();
+            setAdminSuccessToast('Système réinitialisé à zéro avec succès. Seul le compte Super Admin ouaradtech est conservé.');
+            setTimeout(() => setAdminSuccessToast(null), 5000);
+            setIsResetConfirmOpen(false);
+          }}
+          onCancel={() => setIsResetConfirmOpen(false)}
+        />
       )}
 
     </div>

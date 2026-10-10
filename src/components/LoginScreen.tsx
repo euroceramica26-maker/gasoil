@@ -319,36 +319,82 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           </div>
 
           {/* Quick Login Section */}
-          <div className="mt-6 pt-5 border-t border-slate-800 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="w-3 h-3 text-amber-400" />
-                Accès Rapide par Profil Opérateur
-              </span>
-              <span className="text-[10px] text-slate-500 font-mono">1-clic</span>
+          <div className="mt-6 pt-5 border-t border-slate-800 space-y-4">
+            
+            {/* 1. Admins Clients Dédiés (Par Entreprise & Licence) */}
+            {users.some(u => u.role === 'Administrateur Client' || u.isClientAdmin || u.clientId) && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Building className="w-3.5 h-3.5 text-sky-400" />
+                    Admins Clients Dédiés (Par Entreprise & Licence)
+                  </span>
+                  <span className="text-[10px] text-sky-400/80 font-mono">1-clic</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  {users
+                    .filter(u => u.role === 'Administrateur Client' || u.isClientAdmin || u.clientId)
+                    .slice(0, 4)
+                    .map((user) => (
+                      <button
+                        key={user.id}
+                        type="button"
+                        onClick={() => handleQuickLogin(user)}
+                        className="p-2.5 bg-sky-950/40 hover:bg-sky-900/40 border border-sky-500/30 hover:border-sky-400 rounded-xl text-left transition group cursor-pointer"
+                      >
+                        <div className="font-bold text-slate-100 group-hover:text-sky-300 truncate text-[11px] flex items-center justify-between">
+                          <span className="truncate">{user.entreprise || user.nom}</span>
+                          <ArrowRight className="w-3 h-3 text-sky-500 group-hover:text-sky-300 opacity-0 group-hover:opacity-100 transition shrink-0" />
+                        </div>
+                        <div className="text-[10px] text-sky-200/80 truncate mt-0.5">
+                          Admin : {user.prenom} {user.nom} (@{user.login})
+                        </div>
+                        <div className="text-[9px] text-amber-300 font-mono mt-0.5">
+                          mdp: {user.motDePasse || 'admin123'}
+                        </div>
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* 2. Profils Opérateurs Dépôt & Terrain */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="w-3 h-3 text-amber-400" />
+                  Équipe Usine, Dépôt & Chauffeurs
+                </span>
+                <span className="text-[10px] text-slate-500 font-mono">1-clic</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                {users
+                  .filter(u => u.role !== 'Super Administrateur' && u.role !== 'Administrateur Client' && !u.isClientAdmin)
+                  .slice(0, 4)
+                  .map((user) => (
+                    <button
+                      key={user.id}
+                      type="button"
+                      onClick={() => handleQuickLogin(user)}
+                      className="p-2.5 bg-slate-950/70 hover:bg-slate-800 border border-slate-800/80 hover:border-amber-500/50 rounded-xl text-left transition group cursor-pointer"
+                    >
+                      <div className="font-bold text-slate-200 group-hover:text-amber-400 truncate text-[11px] flex items-center justify-between">
+                        <span>{user.prenom} {user.nom}</span>
+                        <ArrowRight className="w-3 h-3 text-slate-600 group-hover:text-amber-400 opacity-0 group-hover:opacity-100 transition shrink-0" />
+                      </div>
+                      <div className="text-[10px] text-slate-400 truncate">
+                        {user.role}
+                      </div>
+                      <div className="text-[9px] text-amber-400/80 font-mono mt-0.5">
+                        mdp: {user.motDePasse || 'admin123'}
+                      </div>
+                    </button>
+                  ))}
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              {users.slice(0, 4).map((user) => (
-                <button
-                  key={user.id}
-                  type="button"
-                  onClick={() => handleQuickLogin(user)}
-                  className="p-2.5 bg-slate-950/70 hover:bg-slate-800 border border-slate-800/80 hover:border-amber-500/50 rounded-xl text-left transition group cursor-pointer"
-                >
-                  <div className="font-bold text-slate-200 group-hover:text-amber-400 truncate text-[11px] flex items-center justify-between">
-                    <span>{user.prenom} {user.nom}</span>
-                    <ArrowRight className="w-3 h-3 text-slate-600 group-hover:text-amber-400 opacity-0 group-hover:opacity-100 transition" />
-                  </div>
-                  <div className="text-[10px] text-slate-400 truncate">
-                    {user.role}
-                  </div>
-                  <div className="text-[9px] text-amber-400/80 font-mono mt-0.5">
-                    mdp: {user.motDePasse || 'admin123'}
-                  </div>
-                </button>
-              ))}
-            </div>
           </div>
         </div>
 

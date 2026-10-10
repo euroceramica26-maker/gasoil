@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, UserRole, UserStatus, UserPermissions } from '../types';
+import { User, UserRole, UserStatus, UserPermissions, Subscription } from '../types';
 import { getDefaultPermissionsForRole, ensureUserPermissions, FULL_PERMISSIONS } from '../lib/userPermissions';
 import { ConfirmModal } from './ConfirmModal';
 import { 
@@ -43,6 +43,7 @@ import {
 interface UsersModuleProps {
   users: User[];
   currentUser?: User | null;
+  subscriptions?: Subscription[];
   onAddUser: (user: Omit<User, 'id'>) => void;
   onUpdateUser: (user: User) => void;
   onDeleteUser: (id: string) => void;
@@ -51,6 +52,7 @@ interface UsersModuleProps {
 const ROLES: UserRole[] = [
   'Super Administrateur',
   'Administrateur',
+  'Administrateur Client',
   'Chef de Dépôt',
   'Pompiste',
   'Chauffeur / Opérateur',
@@ -61,6 +63,7 @@ const ROLES: UserRole[] = [
 export const UsersModule: React.FC<UsersModuleProps> = ({
   users,
   currentUser,
+  subscriptions = [],
   onAddUser,
   onUpdateUser,
   onDeleteUser
@@ -819,6 +822,45 @@ export const UsersModule: React.FC<UsersModuleProps> = ({
                 <span>{saveSuccessNotice}</span>
               </div>
             )}
+
+            {/* Rattachement à une Licence Client définie par le Super Admin */}
+            {(() => {
+              const matchedSub = subscriptions.find(s => 
+                (permissionsUser.clientId && s.id === permissionsUser.clientId) ||
+                (s.clientAdminId && s.clientAdminId === permissionsUser.id) ||
+                (permissionsUser.entreprise && s.entreprise.toLowerCase() === permissionsUser.entreprise.toLowerCase())
+              );
+              if (!matchedSub) return null;
+              return (
+                <div className="p-3 bg-gradient-to-r from-sky-950/60 via-slate-900 to-indigo-950/60 border border-sky-500/40 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 bg-sky-500/20 rounded-lg text-sky-400">
+                      <KeyRound className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="font-bold text-sky-300 block">
+                        Licence Accordée par le Super Admin : {matchedSub.entreprise}
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-mono">
+                        Plan {matchedSub.plan} • Code : {matchedSub.licenseKey.slice(0, 18)}...
+                      </span>
+                    </div>
+                  </div>
+                  {matchedSub.licensePermissions && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTempPermissions(JSON.parse(JSON.stringify(matchedSub.licensePermissions)));
+                      }}
+                      className="px-3 py-1.5 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold rounded-lg text-[11px] flex items-center gap-1.5 transition cursor-pointer shrink-0 shadow-md shadow-sky-500/20"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Synchroniser avec la Licence Client</span>
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Profils rapides */}
             <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800 space-y-1.5">

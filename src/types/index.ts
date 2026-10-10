@@ -100,6 +100,7 @@ export interface ThemeConfig {
 export type UserRole = 
   | 'Super Administrateur'
   | 'Administrateur' 
+  | 'Administrateur Client'
   | 'Chef de Dépôt' 
   | 'Pompiste' 
   | 'Chauffeur / Opérateur' 
@@ -157,6 +158,9 @@ export interface User {
   dateCreation: string;
   dernierAcces?: string;
   permissions?: UserPermissions;
+  clientId?: string; // ID du client / abonnement rattaché
+  entreprise?: string; // Entreprise cliente associée
+  isClientAdmin?: boolean; // Indicateur administrateur de client
 }
 
 export interface Repair {
@@ -228,6 +232,13 @@ export interface Subscription {
   maxCiternes: number;
   notes?: string;
   cleActilee?: boolean;
+  clientAdminId?: string; // ID utilisateur de l'admin client créé
+  clientAdminLogin?: string; // Login de l'admin client dédié
+  clientAdminPassword?: string; // Mot de passe de l'admin client
+  clientAdminNom?: string; // Nom & prénom de l'admin client
+  clientAdminEmail?: string; // Email de l'admin client
+  clientAdminTelephone?: string; // Téléphone direct
+  licensePermissions?: UserPermissions; // Autorisations spécifiques accordées pour cette licence par le Super Admin
 }
 
 export interface SecurityConfig {

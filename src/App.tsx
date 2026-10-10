@@ -75,6 +75,28 @@ import {
   Crown
 } from 'lucide-react';
 
+// Exécution immédiate du reset demandé :
+// "reset tout les donnees laisser seulement le compte super admin ouaradtech"
+const SYSTEM_RESET_FLAG = 'hg_reset_ouaradtech_only_v2026';
+if (typeof window !== 'undefined' && localStorage.getItem(SYSTEM_RESET_FLAG) !== 'completed') {
+  try {
+    localStorage.removeItem('hg_citernes');
+    localStorage.removeItem('hg_vehicles');
+    localStorage.removeItem('hg_entries');
+    localStorage.removeItem('hg_dispenses');
+    localStorage.removeItem('hg_fournisseurs');
+    localStorage.removeItem('hg_vehicle_types');
+    localStorage.removeItem('hg_alerts');
+    localStorage.removeItem('hg_subscriptions');
+    localStorage.removeItem('hg_active_license');
+    localStorage.removeItem('hg_users');
+    localStorage.setItem('hg_auth_user', JSON.stringify(SUPER_ADMIN_USER));
+    localStorage.setItem(SYSTEM_RESET_FLAG, 'completed');
+  } catch (e) {
+    console.error('Initial reset error:', e);
+  }
+}
+
 export default function App() {
   // Navigation tabs (Contrôle Total & Abonnements inclus)
   const [activeTab, setActiveTab] = useState<'dashboard' | 'entries' | 'dispenses' | 'utilisateurs' | 'gestion' | 'controle_total' | 'architecture'>('dashboard');
@@ -96,7 +118,7 @@ export default function App() {
   });
 
   const [activeLicenseKey, setActiveLicenseKey] = useState<string>(() => {
-    return localStorage.getItem('hg_active_license') || 'HGMA2026-A8F9-BC41-7E02-99D34FA189B7';
+    return localStorage.getItem('hg_active_license') || '';
   });
 
   const [securityConfig, setSecurityConfig] = useState<SecurityConfig>(() => {
@@ -195,6 +217,19 @@ export default function App() {
   const canAccessMenu = (menuKey: keyof UserMenuPermissions): boolean => {
     if (!currentUser) return false;
     if (isSuperAdmin) return true;
+
+    // Vérifier les restrictions de licence définies par le Super Admin pour ce client
+    const clientSub = subscriptions.find(s => 
+      (currentUser.clientId && s.id === currentUser.clientId) ||
+      (s.clientAdminId && s.clientAdminId === currentUser.id) ||
+      (currentUser.login && s.clientAdminLogin === currentUser.login) ||
+      (currentUser.entreprise && s.entreprise.toLowerCase() === currentUser.entreprise.toLowerCase())
+    );
+
+    if (clientSub?.licensePermissions?.menus && clientSub.licensePermissions.menus[menuKey] === false) {
+      return false;
+    }
+
     const perms = currentUser.permissions || getDefaultPermissionsForRole(currentUser.role);
     return perms.menus[menuKey] !== false;
   };
@@ -202,6 +237,19 @@ export default function App() {
   const canExecuteOption = (optionKey: keyof UserOptionPermissions): boolean => {
     if (!currentUser) return false;
     if (isSuperAdmin) return true;
+
+    // Vérifier les options autorisées dans la licence du client accordées par le Super Admin
+    const clientSub = subscriptions.find(s => 
+      (currentUser.clientId && s.id === currentUser.clientId) ||
+      (s.clientAdminId && s.clientAdminId === currentUser.id) ||
+      (currentUser.login && s.clientAdminLogin === currentUser.login) ||
+      (currentUser.entreprise && s.entreprise.toLowerCase() === currentUser.entreprise.toLowerCase())
+    );
+
+    if (clientSub?.licensePermissions?.options && clientSub.licensePermissions.options[optionKey] === false) {
+      return false;
+    }
+
     const perms = currentUser.permissions || getDefaultPermissionsForRole(currentUser.role);
     return perms.options[optionKey] !== false;
   };
@@ -328,14 +376,24 @@ export default function App() {
         const migrated = migrateStorageData(saved);
         const parsed: User[] = JSON.parse(migrated);
         loadedUsers = parsed.map(u => {
-          const match = INITIAL_USERS.find(iu => iu.id === u.id || iu.matricule === u.matricule);
+          const match = INITIAL_USERS.find(iu => iu.id === u.id || iu.matricule === u.matricule || iu.login === u.login);
           return {
             ...u,
             login: u.login || match?.login || u.matricule.toLowerCase(),
             motDePasse: u.motDePasse || match?.motDePasse || 'admin123',
-            permissions: u.permissions || match?.permissions
+            permissions: u.permissions || match?.permissions,
+            clientId: u.clientId || match?.clientId,
+            entreprise: u.entreprise || match?.entreprise,
+            isClientAdmin: u.isClientAdmin || match?.isClientAdmin
           };
         });
+
+        // Assurer que les administrateurs clients initiaux sont bien présents
+        for (const initUser of INITIAL_USERS) {
+          if (!loadedUsers.some(u => u.id === initUser.id || (u.login && u.login === initUser.login))) {
+            loadedUsers.push(initUser);
+          }
+        }
       } catch (e) {
         loadedUsers = INITIAL_USERS;
       }
@@ -474,19 +532,70 @@ export default function App() {
     }
   };
 
+  // Reset complet de toutes les données du système (laisse uniquement le compte Super Admin ouaradtech)
+  const handleResetAllData = async () => {
+    // 1. Purge LocalStorage
+    try {
+      localStorage.removeItem('hg_citernes');
+      localStorage.removeItem('hg_vehicles');
+      localStorage.removeItem('hg_entries');
+      localStorage.removeItem('hg_dispenses');
+      localStorage.removeItem('hg_fournisseurs');
+      localStorage.removeItem('hg_vehicle_types');
+      localStorage.removeItem('hg_alerts');
+      localStorage.removeItem('hg_subscriptions');
+      localStorage.removeItem('hg_active_license');
+      localStorage.removeItem('hg_security_config');
+      localStorage.removeItem('hg_audit_logs');
+      localStorage.removeItem('hg_users');
+      localStorage.setItem('hg_auth_user', JSON.stringify(SUPER_ADMIN_USER));
+      localStorage.setItem(SYSTEM_RESET_FLAG, 'completed');
+    } catch (e) {
+      console.warn('LocalStorage reset warning:', e);
+    }
+
+    // 2. Réinitialisation des états React
+    setCiternes([]);
+    setVehicles([]);
+    setEntries([]);
+    setDispenses([]);
+    setFournisseurs([]);
+    setVehicleTypes(INITIAL_VEHICLE_TYPES);
+    setAlerts([]);
+    setSubscriptions([]);
+    setActiveLicenseKey('');
+    setUsers([SUPER_ADMIN_USER]);
+    setCurrentUser(SUPER_ADMIN_USER);
+    setSecurityConfig(INITIAL_SECURITY_CONFIG);
+    setAuditLogs([
+      {
+        id: `LOG-${Date.now()}`,
+        timestamp: new Date().toLocaleString('fr-FR'),
+        user: 'ouaradtech (Super Admin)',
+        action: 'Réinitialisation Totale Système',
+        module: 'Sécurité & Contrôle Total',
+        details: 'Toutes les données ont été réinitialisées. Seul le compte Super Administrateur ouaradtech est conservé.',
+        status: 'Succès',
+        ipAddress: '127.0.0.1'
+      }
+    ]);
+    setCurrentTheme('or-imperial');
+    setIsResetModalOpen(false);
+
+    // 3. Appel de réinitialisation backend
+    try {
+      await fetch('/api/system/reset', { method: 'POST' });
+    } catch (e) {
+      console.warn('Backend reset completed');
+    }
+
+    setSaveBanner('Système réinitialisé avec succès : toutes les données ont été effacées, seul le compte Super Admin ouaradtech est conservé.');
+    setTimeout(() => setSaveBanner(null), 5000);
+  };
+
   // Reset to default demo data
   const handlePerformReset = () => {
-    setCiternes(INITIAL_CITERNES);
-    setVehicles(INITIAL_VEHICLES);
-    setEntries(INITIAL_STOCK_ENTRIES);
-    setDispenses(INITIAL_DISPENSES);
-    setUsers(INITIAL_USERS);
-    setFournisseurs(INITIAL_FOURNISSEURS);
-    setVehicleTypes(INITIAL_VEHICLE_TYPES);
-    setAlerts(INITIAL_ALERTS);
-    setCurrentTheme('or-imperial');
-    localStorage.clear();
-    setIsResetModalOpen(false);
+    handleResetAllData();
   };
 
   // --- CITERNES CRUD ---
@@ -729,6 +838,7 @@ export default function App() {
 
   const handleUpdateUser = (updatedUser: User) => {
     setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+    setCurrentUser(prev => prev && prev.id === updatedUser.id ? { ...prev, ...updatedUser } : prev);
   };
 
   const handleDeleteUser = (id: string) => {
@@ -770,8 +880,14 @@ export default function App() {
   };
 
   // --- GESTION DES ABONNEMENTS (36 CARACTÈRES) & CONTRÔLE TOTAL ---
-  const handleAddSubscription = async (newSub: Subscription) => {
+  const handleAddSubscription = async (newSub: Subscription, adminUser?: User) => {
     setSubscriptions(prev => [newSub, ...prev]);
+    if (adminUser) {
+      setUsers(prev => {
+        const filtered = prev.filter(u => u.id !== adminUser.id && u.login !== adminUser.login);
+        return [...filtered, adminUser];
+      });
+    }
     try {
       await fetch('/api/subscriptions', {
         method: 'POST',
@@ -783,8 +899,24 @@ export default function App() {
     }
   };
 
-  const handleUpdateSubscription = async (id: string, updated: Partial<Subscription>) => {
+  const handleUpdateSubscription = async (id: string, updated: Partial<Subscription>, updatedUser?: Partial<User>) => {
     setSubscriptions(prev => prev.map(s => s.id === id ? { ...s, ...updated } : s));
+    if (updatedUser) {
+      setUsers(prev => {
+        const found = prev.some(u => u.clientId === id || u.id === updated.clientAdminId || (updatedUser.id && u.id === updatedUser.id));
+        if (found) {
+          return prev.map(u => (u.clientId === id || u.id === updated.clientAdminId || u.id === updatedUser.id) ? { ...u, ...updatedUser } : u);
+        }
+        return [...prev, updatedUser as User];
+      });
+      setCurrentUser(prev => {
+        if (!prev) return null;
+        if (prev.clientId === id || prev.id === updated.clientAdminId || (updatedUser.id && prev.id === updatedUser.id)) {
+          return { ...prev, ...updatedUser };
+        }
+        return prev;
+      });
+    }
     try {
       await fetch(`/api/subscriptions/${id}`, {
         method: 'PUT',
@@ -797,7 +929,30 @@ export default function App() {
   };
 
   const handleDeleteSubscription = async (id: string) => {
+    const targetSub = subscriptions.find(s => s.id === id);
     setSubscriptions(prev => prev.filter(s => s.id !== id));
+
+    if (targetSub) {
+      // Si la licence supprimée était celle active sur le poste, on la réinitialise
+      if (targetSub.licenseKey === activeLicenseKey) {
+        setActiveLicenseKey('');
+        localStorage.removeItem('hg_active_license');
+      }
+
+      // Supprimer également l'utilisateur administrateur client dédié (et tous les utilisateurs liés à ce client)
+      setUsers(prev => prev.filter(u => {
+        // Le Super Administrateur Ouaradtech ne doit JAMAIS être supprimé
+        if (u.login?.toLowerCase() === 'ouaradtech' || u.id === 'usr-superadmin' || u.role === 'Super Administrateur') {
+          return true;
+        }
+        if (targetSub.clientAdminId && u.id === targetSub.clientAdminId) return false;
+        if (targetSub.clientAdminLogin && u.login?.toLowerCase() === targetSub.clientAdminLogin.toLowerCase()) return false;
+        if (u.clientId && u.clientId === targetSub.id) return false;
+        if (u.entreprise && u.entreprise.toLowerCase() === targetSub.entreprise.toLowerCase() && (u.isClientAdmin || u.role === 'Administrateur Client')) return false;
+        return true;
+      }));
+    }
+
     try {
       await fetch(`/api/subscriptions/${id}`, { method: 'DELETE' });
     } catch (e) {
@@ -1231,6 +1386,30 @@ export default function App() {
                       <span className="hidden xl:inline text-[10px] text-red-400 font-semibold">Quitter</span>
                     </button>
                   </div>
+                ) : (currentUser.role === 'Administrateur Client' || currentUser.isClientAdmin || currentUser.entreprise) ? (
+                  <div className="flex items-center gap-2 bg-gradient-to-r from-sky-950/80 via-slate-900 to-indigo-950/70 px-2.5 py-1.5 rounded-xl border border-sky-500/40 shadow-sm text-xs">
+                    <div className="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-400 border border-sky-500/40 flex items-center justify-center font-bold text-xs shrink-0">
+                      <Building2 className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="hidden lg:block text-left leading-tight">
+                      <div className="font-extrabold text-sky-300 truncate max-w-[150px] flex items-center gap-1">
+                        <span className="truncate">{currentUser.entreprise || currentUser.nom}</span>
+                        <span className="text-[9px] bg-sky-500/30 text-sky-200 px-1 py-0.2 rounded border border-sky-500/40 font-mono">ADMIN CLIENT</span>
+                      </div>
+                      <div className="text-[10px] text-sky-200/80 truncate max-w-[150px]">
+                        {currentUser.prenom} {currentUser.nom} (@{currentUser.login})
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      title="Se déconnecter (Verrouiller le poste)"
+                      className="p-1.5 rounded-lg hover:bg-red-950/80 text-slate-400 hover:text-red-400 transition cursor-pointer flex items-center gap-1"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span className="hidden xl:inline text-[10px] text-red-400 font-semibold">Quitter</span>
+                    </button>
+                  </div>
                 ) : (
                   <div className="flex items-center gap-2 bg-slate-950 px-2.5 py-1 rounded-xl border border-slate-800 text-xs">
                     <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-bold text-xs shrink-0">
@@ -1521,6 +1700,7 @@ export default function App() {
           <UsersModule
             users={users}
             currentUser={currentUser}
+            subscriptions={subscriptions}
             onAddUser={handleAddUser}
             onUpdateUser={handleUpdateUser}
             onDeleteUser={handleDeleteUser}
@@ -1579,6 +1759,9 @@ export default function App() {
             activeLicenseKey={activeLicenseKey}
             securityConfig={securityConfig}
             auditLogs={auditLogs}
+            users={users}
+            onAddUser={handleAddUser}
+            onUpdateUser={handleUpdateUser}
             onAddSubscription={handleAddSubscription}
             onUpdateSubscription={handleUpdateSubscription}
             onDeleteSubscription={handleDeleteSubscription}
@@ -1599,6 +1782,7 @@ export default function App() {
               reader.readAsText(file);
             }}
             onOpenActivationModal={() => setIsActivationModalOpen(true)}
+            onResetSystem={handleResetAllData}
           />
         )}
 

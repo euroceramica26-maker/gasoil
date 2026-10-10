@@ -88,98 +88,7 @@ export function getDaysRemaining(dateExpirationStr: string): number {
 /**
  * Abonnements initiaux pour le Maroc (Démos, Clients industriels & Transporteurs)
  */
-export const INITIAL_SUBSCRIPTIONS: Subscription[] = [
-  {
-    id: 'SUB-2026-001',
-    licenseKey: 'HGMA2026-A8F9-BC41-7E02-99D34FA189B7', // 36 caractères
-    clientName: 'Karim El Amrani',
-    entreprise: 'Société des Ciments de Mohammedia (SCM)',
-    contact: '+212 5 23 32 40 00',
-    telephone: '+212 6 61 14 55 22',
-    ville: 'Mohammedia',
-    plan: 'Annuel',
-    dateEmission: '2026-01-01',
-    dateExpiration: '2026-12-31',
-    statut: 'Actif',
-    prixMAD: 14000,
-    maxVehicules: 50,
-    maxCiternes: 6,
-    cleActilee: true,
-    notes: 'Contrat grand compte usine et carrières. Support 24/7 métrologie.'
-  },
-  {
-    id: 'SUB-2026-002',
-    licenseKey: 'HGMA2026-8B20-56E1-49F0-C9A833E1D401', // 36 caractères
-    clientName: 'Nadia Berrada',
-    entreprise: 'Logistique & Transport Portuaire Jorf Lasfar',
-    contact: '+212 5 23 34 11 90',
-    telephone: '+212 6 62 88 41 05',
-    ville: 'El Jadida / Jorf Lasfar',
-    plan: 'Annuel',
-    dateEmission: '2026-02-15',
-    dateExpiration: '2027-02-14',
-    statut: 'Actif',
-    prixMAD: 14000,
-    maxVehicules: 40,
-    maxCiternes: 4,
-    cleActilee: false,
-    notes: 'Parc engins lourds et groupes électrogènes quais portuaires.'
-  },
-  {
-    id: 'SUB-2026-003',
-    licenseKey: 'HGMA2026-7C33-89D2-11E5-66B8401A7EF2', // 36 caractères
-    clientName: 'Mohamed Tazi',
-    entreprise: 'Atlas Mines & Carrières Zagora',
-    contact: '+212 5 24 84 70 12',
-    telephone: '+212 6 70 33 29 18',
-    ville: 'Marrakech / Ouarzazate',
-    plan: 'Trimestriel',
-    dateEmission: '2026-08-01',
-    dateExpiration: '2026-10-31',
-    statut: 'Actif',
-    prixMAD: 4500,
-    maxVehicules: 25,
-    maxCiternes: 3,
-    cleActilee: false,
-    notes: 'Paiement trimestriel par virement Attijariwafa Bank.'
-  },
-  {
-    id: 'SUB-2026-004',
-    licenseKey: 'HGMA2026-D412-99B7-44E8-55F120A4B8C9', // 36 caractères
-    clientName: 'Youssef Bennani',
-    entreprise: 'BTP Tanger Med Infrastructure',
-    contact: '+212 5 39 93 18 20',
-    telephone: '+212 6 64 55 99 01',
-    ville: 'Tanger',
-    plan: 'Entreprise',
-    dateEmission: '2026-01-01',
-    dateExpiration: '2028-12-31',
-    statut: 'Actif',
-    prixMAD: 38000,
-    maxVehicules: 120,
-    maxCiternes: 12,
-    cleActilee: false,
-    notes: 'Licence multi-sites et accès API télématique en continu.'
-  },
-  {
-    id: 'SUB-2026-005',
-    licenseKey: 'HGMA2026-0000-DEMO-TEST-998877665544', // 36 caractères
-    clientName: 'Démo Évaluation Maroc',
-    entreprise: 'Compagnie Marocaine des Hydrocarbures (Essai)',
-    contact: '+212 5 22 22 10 00',
-    telephone: '+212 6 61 00 00 00',
-    ville: 'Casablanca',
-    plan: 'Essai',
-    dateEmission: '2026-09-25',
-    dateExpiration: '2026-10-25',
-    statut: 'Actif',
-    prixMAD: 0,
-    maxVehicules: 10,
-    maxCiternes: 2,
-    cleActilee: false,
-    notes: 'Période d essai 30 jours pour démonstration client.'
-  }
-];
+export const INITIAL_SUBSCRIPTIONS: Subscription[] = [];
 
 export const INITIAL_SECURITY_CONFIG: SecurityConfig = {
   emergencyLockdown: false,
@@ -196,42 +105,12 @@ export const INITIAL_SECURITY_CONFIG: SecurityConfig = {
 export const INITIAL_AUDIT_LOGS: AuditLog[] = [
   {
     id: 'LOG-001',
-    timestamp: '2026-10-09 08:30:12',
-    user: 'Yassine Benali (Admin)',
-    action: 'Démarrage Système',
+    timestamp: '2026-10-10 09:00:00',
+    user: 'ouaradtech (Super Admin)',
+    action: 'Démarrage & Initialisation Système',
     module: 'Sécurité Centrale',
-    details: 'Initialisation du backend et vérification de la licence 36 caractères.',
-    status: 'Succès',
-    ipAddress: '192.168.1.10 (Local Usine)'
-  },
-  {
-    id: 'LOG-002',
-    timestamp: '2026-10-09 08:35:44',
-    user: 'Samir Chaabane (Pompiste)',
-    action: 'Délivrance Carburant',
-    module: 'Pistolet Volucompteur',
-    details: 'Plein effectué sur Engin CAT 336D (48291-A-12) : 280,50 L avec signature.',
-    status: 'Succès',
-    ipAddress: '192.168.1.42 (Borne Dépot)'
-  },
-  {
-    id: 'LOG-003',
-    timestamp: '2026-10-09 08:42:19',
-    user: 'Système Automatique',
-    action: 'Audit Métrologique',
-    module: 'Citernes',
-    details: 'Contrôle téléjauge Citerne 1 (Mohammedia) : 38 450 L (76.9%). Normal.',
+    details: 'Système initialisé. Compte Super Administrateur ouaradtech opérationnel.',
     status: 'Succès',
     ipAddress: '127.0.0.1'
-  },
-  {
-    id: 'LOG-004',
-    timestamp: '2026-10-09 08:50:02',
-    user: 'Anonyme',
-    action: 'Tentative d Accès',
-    module: 'Authentification',
-    details: 'Connexion rapide réussie pour profil Administrateur.',
-    status: 'Sécurité',
-    ipAddress: '192.168.1.15'
   }
 ];
